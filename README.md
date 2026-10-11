@@ -172,12 +172,26 @@ Claude Code, edits through the edit tool ask for your approval.
 - Python 3.10+ and git. No other dependencies.
 - At least one of Claude Code, Codex CLI or Antigravity CLI.
 
-## Limits
+## Status: a verified starting point, not a finished product
 
-The command policy is a narrow guard, not a shell firewall: it does not see secrets printed through
-variables, targets passed through stdin, or paths built in variables. Code correctness still rests on
-tests and on the agent's own verification and review, which can miss things. The harness makes
-skipping verification visible, not impossible.
+Everything above was measured, but some things have not been, and they are listed here on purpose.
+
+1. **Codex with a real model is untested.** The Codex hooks are proven with a stand-in model; whether a
+   Codex model follows `AGENTS.md` and picks the right skills has not been measured yet.
+2. **Large tasks are unmeasured.** The benchmark covers four small tasks. Multi-file changes and real
+   debugging, where process discipline should matter most, have no data yet.
+3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
+   (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.
+4. **The guard is not a firewall.** It does not see secrets printed through variables, targets passed
+   through stdin, or paths built in variables. Code correctness still rests on tests and on the agent's
+   own verification and review, which can miss things. The harness makes skipping verification visible,
+   not impossible.
+5. **No real-world usage data yet.** The Growth Engine improves the harness from block logs and
+   retrospectives, which only accumulate through real work.
+
+**The foundation is laid. Train it on your own work and make it yours.** When something gets in your way
+or an agent does something odd, record it with `/retro` (Claude Code) or `growth_engine.py`; those
+records are the evidence for the next improvement.
 
 ## Contributing
 
