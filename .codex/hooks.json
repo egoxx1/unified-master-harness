@@ -1,0 +1,18 @@
+{
+  "description": "V4 repository safety guard. Project-local hooks require Codex project trust.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|exec_command|shell|local_shell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/agent-core/hooks/codex_pretool.py\"",
+            "timeout": 5,
+            "statusMessage": "Checking V4 repository safety policy"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "researched_at": "2026-09-28",
+  "sources": [
+    {
+      "name": "Karpathy-inspired coding guidelines",
+      "repo": "multica-ai/andrej-karpathy-skills",
+      "path": "CLAUDE.md",
+      "blob_sha": "daced9bd64f25908ebedeb4701fb406985dc8366",
+      "usage": [
+        "simplicity",
+        "surgical changes",
+        "goal-driven verification"
+      ]
+    },
+    {
+      "name": "OpenAI Codex repo instructions",
+      "repo": "openai/codex",
+      "path": "AGENTS.md",
+      "blob_sha": "fd0b9ed9e781bdb29bb11a8f62b777ad773fec81",
+      "usage": [
+        "repo-native commands",
+        "scoped verification",
+        "context discipline"
+      ]
+    },
+    {
+      "name": "OpenAI Agents Python instructions",
+      "repo": "openai/openai-agents-python",
+      "path": "AGENTS.md",
+      "blob_sha": "377f61f36728f99d6ed8a8bb005d4c4faad18742",
+      "usage": [
+        "security",
+        "trust boundaries",
+        "dependency caution"
+      ]
+    },
+    {
+      "name": "Next.js instructions",
+      "repo": "vercel/next.js",
+      "path": "AGENTS.md",
+      "blob_sha": "580328e2fe7065a88ea48ff052eebda590e156e2",
+      "usage": [
+        "targeted testing",
+        "test-output reuse"
+      ]
+    },
+    {
+      "name": "jbarbier Claude rules",
+      "repo": "jbarbier/CLAUDE.md",
+      "path": "CLAUDE.md",
+      "blob_sha": "6e1dcf978f9ae8722b93091c73bff85fc3d7e4b4",
+      "usage": [
+        "task sizing",
+        "smaller-first escalation",
+        "worktree isolation",
+        "deterministic automation",
+        "context curation"
+      ]
+    },
+    {
+      "name": "Superpowers debugging",
+      "repo": "obra/superpowers",
+      "path": "skills/systematic-debugging/SKILL.md",
+      "blob_sha": "095d194ac041502905f15b01d22d294fb94db8b2",
+      "usage": [
+        "root-cause debugging",
+        "single-hypothesis testing"
+      ]
+    },
+    {
+      "name": "Superpowers verification",
+      "repo": "obra/superpowers",
+      "path": "skills/verification-before-completion/SKILL.md",
+      "blob_sha": "7d45333cc4a49c57a80df6c1fe2fa777a207afbc",
+      "usage": [
+        "evidence before completion claims"
+      ]
+    },
+    {
+      "name": "Superpowers planning",
+      "repo": "obra/superpowers",
+      "path": "skills/writing-plans/SKILL.md",
+      "blob_sha": "4cf0275d88d67aa4ef09f4bbca9970ed6ff74a00",
+      "usage": [
+        "decision-focused planning",
+        "plan proportion"
+      ]
+    },
+    {
+      "name": "Addy Osmani frontend UI engineering",
+      "repo": "addyosmani/agent-skills",
+      "path": "skills/frontend-ui-engineering/SKILL.md",
+      "blob_sha": "eaf0fa163876a5274674f42ea208742c50f27119",
+      "usage": [
+        "UI quality",
+        "anti-generic-AI aesthetics",
+        "accessibility"
+      ]
+    },
+    {
+      "name": "Addy Osmani spec-driven development",
+      "repo": "addyosmani/agent-skills",
+      "path": "skills/spec-driven-development/SKILL.md",
+      "blob_sha": "912bbc0dbbd2a348d95dd769847a862b1164c657",
+      "usage": [
+        "large-task spec routing",
+        "success criteria"
+      ]
+    }
+  ],
+  "official_docs": [
+    "https://developers.openai.com/de-DE/docs/hooks",
+    "https://developers.openai.com/ko-KR/blog/skills-agents-sdk",
+    "https://developers.openai.com/blog/rethinking-skills-and-prompts-for-gpt-6-astra",
+    "https://code.claude.com/docs/en/features-overview",
+    "https://code.claude.com/docs/ko/env-vars",
+    "https://codelabs.developers.google.com/getting-started-google-antigravity",
+    "https://codelabs.developers.google.com/secure-agentic-coding",
+    "https://codelabs.developers.google.com/tech-digest-managed-agent"
+  ],
+  "policy": "Ideas were synthesized and rewritten; no source file is vendored verbatim.",
+  "package_version": "4.0.0"
+}

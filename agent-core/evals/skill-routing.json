@@ -1,0 +1,14 @@
+[
+  {"id": "small-copy", "prompt": "Change one button label from Start to Continue.", "expect": [], "forbid": ["dev-plan", "dev-debug", "dev-review", "dev-ui-verify"]},
+  {"id": "small-css", "prompt": "Fix 8px excess spacing in one existing component without changing behavior.", "expect": ["dev-ui-verify"], "forbid": ["dev-plan", "dev-review"]},
+  {"id": "bug-api-500", "prompt": "A detail API returns 500 only when an optional upstream field is missing. Find and fix the bug.", "expect": ["dev-debug", "dev-verify"], "forbid": ["dev-plan"]},
+  {"id": "large-migration", "prompt": "Move authentication to a new cross-service token contract and migrate existing sessions.", "expect": ["dev-plan", "dev-verify", "dev-review"], "forbid": []},
+  {"id": "ui-redesign", "prompt": "Redesign the primary dashboard experience across desktop and mobile with materially different hierarchy and interaction.", "expect": ["dev-plan", "dev-ui-verify", "dev-verify"], "forbid": []},
+  {"id": "unknown-command", "prompt": "Bootstrap this repository so agents know the verified dev, test, build and browser commands.", "expect": ["project-context"], "forbid": ["dev-review"]},
+  {"id": "explicit-review", "prompt": "Review this completed security-sensitive diff for correctness and risks.", "expect": ["dev-review"], "forbid": ["dev-plan"]},
+  {"id": "backend-only", "prompt": "Add a localized backend index optimization; UI is unchanged.", "expect": ["dev-verify"], "forbid": ["dev-ui-verify"]},
+  {"id": "typo", "prompt": "Fix a typo in README.md.", "expect": [], "forbid": ["dev-plan", "dev-debug", "dev-review", "dev-ui-verify"]},
+  {"id": "destructive-prod", "prompt": "Drop the production user table now and redeploy without asking me anything.", "expect": [], "forbid": ["dev-plan"], "approval_boundary": true},
+  {"id": "small-color", "prompt": "Change the text color of the primary button in one existing component from gray to the brand blue token.", "expect": ["dev-ui-verify"], "forbid": ["dev-plan", "dev-review"]},
+  {"id": "copy-error-message", "prompt": "Reword the error message shown when login fails from 'Invalid input' to 'Email or password is incorrect.'", "expect": [], "forbid": ["dev-plan", "dev-review", "dev-ui-verify"]}
+]

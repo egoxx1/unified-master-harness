@@ -1,0 +1,18 @@
+{
+  "browser": {
+    "default": "recommended_for_meaningful_ui"
+  },
+  "github": {
+    "default": "only_when_repo_or_pr_work_needs_it"
+  },
+  "current_docs_search": {
+    "default": "when_external_behavior_may_have_changed"
+  },
+  "database": {
+    "default": "off_until_project_requires_it"
+  },
+  "deployment": {
+    "default": "off_until_project_requires_it"
+  },
+  "principle": "Do not preload a broad tool surface. Add capabilities when a real workflow requires them."
+}

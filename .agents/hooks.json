@@ -1,0 +1,16 @@
+{
+  "v4-safety": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|view_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=agent-core/hooks/antigravity_pretool.py; for d in .. . \"$(git rev-parse --show-toplevel 2>/dev/null)\"; do [ -n \"$d\" ] && [ -f \"$d/$f\" ] && exec python3 -B \"$d/$f\"; done; echo '{\"decision\":\"deny\",\"reason\":\"V4 safety hook script not found; refusing tool call.\"}'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

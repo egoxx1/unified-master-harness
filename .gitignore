@@ -1,0 +1,8 @@
+.agent-state/
+.agent-worktrees/
+.agent-migration-backup/
+__pycache__/
+*.pyc
+.DS_Store
+MANIFEST.json
+bench/results/

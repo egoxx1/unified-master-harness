@@ -1,0 +1,9 @@
+# V4 project defaults for Codex. Codex loads this file only after the project is trusted,
+# and it overrides user-level defaults such as approval_policy = "never" with
+# sandbox_mode = "danger-full-access": edits stay inside the workspace and Codex asks
+# before anything that needs to leave it. Network stays on so package installs work.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[sandbox_workspace_write]
+network_access = true

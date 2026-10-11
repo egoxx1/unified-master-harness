@@ -1,0 +1,10 @@
+[
+  {"id": "typo", "kind": "trivial", "hidden": "test_readme.py",
+   "prompt": "Fix the spelling mistake \"recieve\" in README.md."},
+  {"id": "bugfix", "kind": "bug", "hidden": "test_paginate.py",
+   "prompt": "Bug report: paginate(items, page=2, size=10) in shop/pagination.py returns 11 items instead of 10. Fix it."},
+  {"id": "slugify", "kind": "bug", "hidden": "test_slugify.py",
+   "prompt": "slugify(\"Hello  World!!\") in shop/text.py returns \"hello--world\" but should return \"hello-world\". Fix it."},
+  {"id": "discount", "kind": "feature", "hidden": "test_discount.py",
+   "prompt": "Add discount(price, percent) to shop/pricing.py: return the price after a percentage discount, rounded to cents. Raise ValueError if percent is outside 0-100."}
+]

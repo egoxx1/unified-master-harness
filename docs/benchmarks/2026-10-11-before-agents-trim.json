@@ -1,0 +1,611 @@
+{
+ "claude_version": "2.1.296 (Claude Code)",
+ "model": "default",
+ "reps": 3,
+ "rows": [
+  {
+   "task": "typo",
+   "arm": "bare",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.13410930000000001,
+   "input_tokens": 92868,
+   "output_tokens": 333,
+   "turns": 3,
+   "seconds": 5.2,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "typo",
+   "arm": "harness",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.10936309999999999,
+   "input_tokens": 109686,
+   "output_tokens": 350,
+   "turns": 3,
+   "seconds": 5.4,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "bare",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.0990688,
+   "input_tokens": 125787,
+   "output_tokens": 890,
+   "turns": 6,
+   "seconds": 9.6,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pagination.cpython-314.pyc",
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Glob **/*pagina*",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nfrom shop.pagination import paginate\nitems=list(range(50))\nassert len(paginate(items,2,10))==10 and pagi",
+    "Bash PYTHONPATH=. python3 -c \"\nfrom shop.pagination import paginate\nitems=list(range(50))\nassert paginate(items,2,10)==list(r"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "harness",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.11427760000000001,
+   "input_tokens": 147656,
+   "output_tokens": 663,
+   "turns": 5,
+   "seconds": 8.6,
+   "changed_lines": 2,
+   "files": [
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Grep paginate",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nimport sys; sys.path.insert(0,'.')\nfrom shop.pagination import paginate\nr=paginate(list(range(30)),2,10)"
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "bare",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.095208,
+   "input_tokens": 125130,
+   "output_tokens": 631,
+   "turns": 5,
+   "seconds": 8.1,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/text.cpython-314.pyc",
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Edit shop/text.py",
+    "Bash python3 -I -c \"\nfrom shop.text import slugify\nprint(slugify('Hello  World!!'))\" ; git status --short",
+    "Bash PYTHONPATH=. python3 -c \"\nfrom shop.text import slugify\nprint(slugify('Hello  World!!'))\""
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "harness",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.1218609,
+   "input_tokens": 185362,
+   "output_tokens": 907,
+   "turns": 7,
+   "seconds": 11.0,
+   "changed_lines": 2,
+   "files": [
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": true,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Edit shop/text.py",
+    "Glob **/test*slug*.py",
+    "Glob **/test_text*.py",
+    "Bash python3 -I -c \"\nimport sys; sys.path.insert(0,'.')\nfrom shop.text import slugify\nfor s in ['Hello  World!!','  a--b  ','",
+    "Bash ls tests && grep -rn \"slugify\" tests shop | head; python3 -m pytest -q tests 2>&1 | tail -5"
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "bare",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.0899632,
+   "input_tokens": 93251,
+   "output_tokens": 554,
+   "turns": 3,
+   "seconds": 6.5,
+   "changed_lines": 7,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pricing.cpython-314.pyc",
+    "shop/pricing.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Bash git diff --stat; ls; ls shop; cat shop/pricing.py",
+    "Bash cat >> shop/pricing.py <<'EOF'\n\n\ndef discount(price, percent):\n    \"\"\"Price after a percentage discount, rounded to cent"
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "harness",
+   "rep": 0,
+   "ok": true,
+   "cost_usd": 0.13728030000000002,
+   "input_tokens": 226897,
+   "output_tokens": 1394,
+   "turns": 10,
+   "seconds": 15.0,
+   "changed_lines": 18,
+   "files": [
+    "shop/pricing.py",
+    "tests/test_shop.py"
+   ],
+   "correct": true,
+   "tests_run": true,
+   "checked": true,
+   "tool_calls": [
+    "Glob shop/**/*.py",
+    "Glob tests/**/*.py",
+    "Read shop/pricing.py",
+    "Read tests/test_shop.py",
+    "Edit shop/pricing.py",
+    "Edit tests/test_shop.py",
+    "Edit tests/test_shop.py",
+    "Bash python3 -m unittest discover -s tests -t . -v 2>&1 | tail -15",
+    "Bash python3 -m unittest tests.test_shop -v 2>&1 | tail -15"
+   ]
+  },
+  {
+   "task": "typo",
+   "arm": "harness",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.10500309999999999,
+   "input_tokens": 109649,
+   "output_tokens": 350,
+   "turns": 3,
+   "seconds": 5.2,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "typo",
+   "arm": "bare",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.0867781,
+   "input_tokens": 92872,
+   "output_tokens": 336,
+   "turns": 3,
+   "seconds": 5.0,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "harness",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.1190561,
+   "input_tokens": 148358,
+   "output_tokens": 979,
+   "turns": 6,
+   "seconds": 9.1,
+   "changed_lines": 2,
+   "files": [
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Glob **/*pagination*",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nfrom shop.pagination import paginate\nitems = list(range(35))\nassert len(paginate(items, 2, 10)) == 10\nas",
+    "Bash python3 -c \"\nfrom shop.pagination import paginate\nitems = list(range(35))\nassert len(paginate(items, 2, 10)) == 10\nasser"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "bare",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.0900638,
+   "input_tokens": 93347,
+   "output_tokens": 528,
+   "turns": 4,
+   "seconds": 6.7,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pagination.cpython-314.pyc",
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nimport sys; sys.path.insert(0,'.')\nfrom shop.pagination import paginate\nr=paginate(list(range(100)),2,10"
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "harness",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.1191234,
+   "input_tokens": 148323,
+   "output_tokens": 997,
+   "turns": 6,
+   "seconds": 10.3,
+   "changed_lines": 2,
+   "files": [
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Grep slugify",
+    "Edit shop/text.py",
+    "Bash python3 -I -c \"\nfrom shop.text import slugify\nfor s in ['Hello  World!!', '  a--b  ', 'x', '!!!']:\n    print(repr(s), '-",
+    "Bash PYTHONPATH=. python3 -c \"\nfrom shop.text import slugify\nfor s in ['Hello  World!!', '  a--b  ', 'x', '!!!']:\n    print(r"
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "bare",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.09605439999999998,
+   "input_tokens": 125291,
+   "output_tokens": 684,
+   "turns": 5,
+   "seconds": 8.8,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/text.cpython-314.pyc",
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Edit shop/text.py",
+    "Bash python3 -I -c \"\nfrom shop.text import slugify\nprint(repr(slugify('Hello  World!!')))\" ; git diff --stat",
+    "Bash PYTHONPATH=. python3 -c \"\nfrom shop.text import slugify\nprint(repr(slugify('Hello  World!!')))\""
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "harness",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.1493575,
+   "input_tokens": 304615,
+   "output_tokens": 1706,
+   "turns": 12,
+   "seconds": 18.2,
+   "changed_lines": 19,
+   "files": [
+    "shop/pricing.py",
+    "tests/test_shop.py"
+   ],
+   "correct": true,
+   "tests_run": true,
+   "checked": true,
+   "tool_calls": [
+    "Glob shop/**",
+    "Glob **/test*pricing*",
+    "Read shop/pricing.py",
+    "Glob **/test*.py",
+    "Edit shop/pricing.py",
+    "Read tests/test_shop.py",
+    "Edit tests/test_shop.py",
+    "Edit tests/test_shop.py",
+    "Bash python3 -m unittest tests.test_shop -v 2>&1 | tail -15",
+    "Edit tests/test_shop.py",
+    "Bash python3 -m unittest tests.test_shop -v 2>&1 | tail -10"
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "bare",
+   "rep": 1,
+   "ok": true,
+   "cost_usd": 0.11824929999999999,
+   "input_tokens": 225175,
+   "output_tokens": 1354,
+   "turns": 9,
+   "seconds": 14.5,
+   "changed_lines": 7,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pagination.cpython-314.pyc",
+    "shop/__pycache__/pricing.cpython-314.pyc",
+    "shop/__pycache__/text.cpython-314.pyc",
+    "shop/pricing.py",
+    "tests/__pycache__/test_shop.cpython-314.pyc"
+   ],
+   "correct": true,
+   "tests_run": true,
+   "checked": true,
+   "tool_calls": [
+    "Glob **/*.py",
+    "Bash git diff HEAD --stat && ls -la shop 2>&1",
+    "Read shop/pricing.py",
+    "Read tests/test_shop.py",
+    "Edit shop/pricing.py",
+    "Bash python3 -I -c \"\nfrom shop.pricing import discount\nprint(discount(100, 0), discount(19.99, 15), discount(50, 100))\nfor p",
+    "Bash PYTHONPATH=. python3 -c \"\nfrom shop.pricing import discount\nprint(discount(100, 0), discount(19.99, 15), discount(50, 10",
+    "Bash python3 -m unittest tests.test_shop 2>&1 | tail -3"
+   ]
+  },
+  {
+   "task": "typo",
+   "arm": "bare",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.08671709999999999,
+   "input_tokens": 92852,
+   "output_tokens": 334,
+   "turns": 3,
+   "seconds": 4.8,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "typo",
+   "arm": "harness",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.1100749,
+   "input_tokens": 146622,
+   "output_tokens": 404,
+   "turns": 4,
+   "seconds": 6.2,
+   "changed_lines": 2,
+   "files": [
+    "README.md"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Grep recieve",
+    "Read README.md",
+    "Edit README.md"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "bare",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.0904594,
+   "input_tokens": 93414,
+   "output_tokens": 547,
+   "turns": 4,
+   "seconds": 7.2,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pagination.cpython-314.pyc",
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nimport sys; sys.path.insert(0,'.')\nfrom shop.pagination import paginate\nr=paginate(list(range(100)),2,10"
+   ]
+  },
+  {
+   "task": "bugfix",
+   "arm": "harness",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.1180086,
+   "input_tokens": 148179,
+   "output_tokens": 901,
+   "turns": 6,
+   "seconds": 10.2,
+   "changed_lines": 2,
+   "files": [
+    "shop/pagination.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pagination.py",
+    "Glob **/*pagination*",
+    "Edit shop/pagination.py",
+    "Bash python3 -I -c \"\nfrom shop.pagination import paginate\nr = paginate(list(range(100)), 2, 10)\nprint(len(r), r)\nprint(len(pa",
+    "Bash python3 -I -c \"\nimport sys; sys.path.insert(0, '.')\nfrom shop.pagination import paginate\nr = paginate(list(range(100)),"
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "bare",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.09607599999999998,
+   "input_tokens": 125295,
+   "output_tokens": 683,
+   "turns": 5,
+   "seconds": 11.2,
+   "changed_lines": 2,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/text.cpython-314.pyc",
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Edit shop/text.py",
+    "Bash python3 -I -c \"from shop.text import slugify; print(repr(slugify('Hello  World!!')))\"",
+    "Bash PYTHONPATH=. python3 -c \"from shop.text import slugify; print(repr(slugify('Hello  World!!')))\""
+   ]
+  },
+  {
+   "task": "slugify",
+   "arm": "harness",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.1145428,
+   "input_tokens": 147539,
+   "output_tokens": 702,
+   "turns": 5,
+   "seconds": 9.4,
+   "changed_lines": 2,
+   "files": [
+    "shop/text.py"
+   ],
+   "correct": true,
+   "tests_run": true,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/text.py",
+    "Edit shop/text.py",
+    "Bash python3 -c \"\nfrom shop.text import slugify\nfor s in ['Hello  World!!', ' a--b ', 'x']: print(repr(slugify(s)))\n\"; ls tes",
+    "Bash python3 -m pytest tests -q 2>&1 | tail -5"
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "bare",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.0901975,
+   "input_tokens": 93255,
+   "output_tokens": 577,
+   "turns": 3,
+   "seconds": 7.3,
+   "changed_lines": 7,
+   "files": [
+    "shop/__pycache__/__init__.cpython-314.pyc",
+    "shop/__pycache__/pricing.cpython-314.pyc",
+    "shop/pricing.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": false,
+   "tool_calls": [
+    "Bash git ls-files && cat shop/pricing.py",
+    "Bash cat >> shop/pricing.py <<'EOF'\n\n\ndef discount(price, percent):\n    \"\"\"Price after a percentage discount, rounded to cent"
+   ]
+  },
+  {
+   "task": "discount",
+   "arm": "harness",
+   "rep": 2,
+   "ok": true,
+   "cost_usd": 0.1115017,
+   "input_tokens": 110439,
+   "output_tokens": 772,
+   "turns": 5,
+   "seconds": 7.4,
+   "changed_lines": 7,
+   "files": [
+    "shop/pricing.py"
+   ],
+   "correct": true,
+   "tests_run": false,
+   "checked": true,
+   "tool_calls": [
+    "Read shop/pricing.py",
+    "Glob **/*test*pricing*",
+    "Edit shop/pricing.py",
+    "Bash python3 -c \"\nfrom shop.pricing import discount\nprint(discount(100,0), discount(19.99,15), discount(50,100))\nfor p in (-1"
+   ]
+  }
+ ]
+}
