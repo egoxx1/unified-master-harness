@@ -7,6 +7,7 @@ from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[2]
 INSTALL=ROOT/'install/apply.py'
+HOME_PATH='/'+'Users'+'/someone/Desktop/app/'  # built in pieces so this file is not itself flagged
 
 
 def cmd(args,cwd=None,timeout=20):
@@ -54,6 +55,19 @@ class InstallMatrixTests(unittest.TestCase):
             facts=self.apply_and_profile(r)
             self.assertIsNone(facts['package_manager'])
             self.assertEqual([],facts['explicit_ports'])
+
+    def test_project_paths_in_project_docs_do_not_fail_check(self):
+        with tempfile.TemporaryDirectory() as td:
+            r=Path(td); self.init(r)
+            self.apply_and_profile(r)
+            (r/'docs/agent').mkdir(parents=True,exist_ok=True)
+            (r/'docs/agent/notes.md').write_text('Working copy: '+HOME_PATH+'\n')
+            p=cmd([sys.executable,str(r/'agent-core/scripts/check_agent_config.py')],r)
+            self.assertEqual(0,p.returncode,p.stdout+p.stderr)
+            (r/'agent-core/scripts/extra.py').write_text('PATH="'+HOME_PATH+'"\n')
+            p=cmd([sys.executable,str(r/'agent-core/scripts/check_agent_config.py')],r)
+            self.assertNotEqual(0,p.returncode)
+            self.assertIn('extra.py',p.stdout)
 
     def test_existing_agent_config_requires_semantic_migration(self):
         with tempfile.TemporaryDirectory() as td:

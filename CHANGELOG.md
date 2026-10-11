@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.2.2 — 2026-10-11
+
+- `check_agent_config.py`: in an installed project it now scans only harness code for personal-home paths.
+  Before, `AGENTS.md`, `docs/agent/` and templates were scanned too, so a project's own notes with real
+  paths made the check fail. The harness source and release tree are still scanned in full.
+- Upgrade path from 4.0.0 (no manifest) verified on two real projects: harness-owned files replaced,
+  customized `AGENTS.md` / `CLAUDE.md` merged by hand, 101 tests pass in both.
+
 ## 4.2.1 — 2026-10-11
 
 - `dev-ui-verify` now applies to any change in how the UI looks or behaves, scaled to the change: a

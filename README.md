@@ -9,7 +9,7 @@ A shared operating harness for **Claude Code**, **Codex** and **Antigravity**, m
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#requirements)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
-[![Version](https://img.shields.io/badge/version-4.2.1-2F4858.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.2.2-2F4858.svg)](CHANGELOG.md)
 
 **English** · [한국어](README.ko.md)
 

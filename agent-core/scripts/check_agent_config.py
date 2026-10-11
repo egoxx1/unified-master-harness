@@ -130,7 +130,13 @@ def main() -> int:
     # Scan V4-owned/config text for concrete personal-home contamination. Skip this checker
     # itself because it necessarily contains the detection patterns.
     skip={(r/'agent-core/scripts/check_agent_config.py').resolve()}
-    scan_roots=[r/'AGENTS.md',r/'.agents',r/'.claude',r/'.codex',r/'agent-core',r/'docs/agent',r/'templates']
+    # In the harness source/release tree everything is scanned. In an installed project, AGENTS.md,
+    # docs/agent and project notes legitimately hold that project's own paths, so only harness code is scanned.
+    if (r/'install/apply.py').exists():
+        scan_roots=[r/'AGENTS.md',r/'.agents',r/'.claude',r/'.codex',r/'agent-core',r/'docs/agent',r/'templates']
+    else:
+        scan_roots=[r/p for p in ('.agents/hooks.json','.agents/skills','.claude/settings.json','.claude/skills','.claude/agents',
+                                  '.claude/commands','.codex','agent-core/hooks','agent-core/scripts','agent-core/evals','agent-core/tests')]
     for base in scan_roots:
         paths=[base] if base.is_file() else (list(base.rglob('*')) if base.exists() else [])
         for p in paths:

@@ -20,7 +20,7 @@
     "CLAUDE.md": "4fcec0d3ebfae11234d252ef46e7124f4b09377abe587d6805242d101f65cfe0",
     "START-HERE.ko.md": "d128f2733311e592e9eba38a364104349067de8902877d8f630c6fc09c179361",
     "START-HERE.md": "7fe4bee3bff624ec5ef165921ba966a575c40a350d9c02538416a7fa3b3cb3c4",
-    "agent-core/VERSION": "e5d77a995a7d89c4b24498cb8947c3b40e53f4d2c0ba2380796cdb059d237848",
+    "agent-core/VERSION": "1467d465785bff74035e6f7cc652495a7a5f0c4e182e0d16c0db514beea967de",
     "agent-core/capabilities.json": "4b0af390cf984c000762a11c3bba5484ee92dcf499dfe1661320af39229a3538",
     "agent-core/evals/README.md": "a972a02187d9cc13ed25e21844bf97ae78452a23f220ddc6713a17f44001f9df",
     "agent-core/evals/provider-smoke.md": "f928ae7a2a3392cc737e8f57d5fb070f0b4162dbe9d56d5d774880743a902a2e",
@@ -37,7 +37,7 @@
     "agent-core/project/README.md": "15e12c8ac2d81a9ce82c30ae84740166aa2104d31fe16defb3ebc090c77f7e98",
     "agent-core/scripts/bootstrap_project.py": "67b0f500870656f10e1b50b36845f9dbb84cfc67bec44e2c0bedb7b83bed1545",
     "agent-core/scripts/build_release.py": "ae41fc16bf0948b7044135183bbebc8cd4f4ef828598ab57696916a36b45ed4f",
-    "agent-core/scripts/check_agent_config.py": "be0c0bd3635463ca70ab4f3637f0f5bf4ce4542ac805caf04b0012f1f68a68d6",
+    "agent-core/scripts/check_agent_config.py": "8b3df32885d455ba758ceb6bd8663ce45687f975b82e3eca783dbb95b4ead404",
     "agent-core/scripts/codex_hook_probe.py": "7d8cfc4c70b9c0326428c608dad360e6f126d335915b5c9e2baaeb1d0b870791",
     "agent-core/scripts/doctor.py": "c6bc6a1d746c4ccfa0d9b244ca02b0a5e3f08b40396e39e1def860379668c1ed",
     "agent-core/scripts/growth_engine.py": "1a5cb44c938fe3c384a640aa1ffb52100f666e7335aa004408e7a3b0a5f97e89",
@@ -55,7 +55,7 @@
     "agent-core/tests/test_doctor.py": "17ae1d501fb00b8b3438d05faa0cebe79800f6c571c838c66cb1ff85f9269c64",
     "agent-core/tests/test_growth_engine.py": "3b19284f46637cd3b8061f8aaebd6da5e0fc52f95d70bade3bcc70c5a71351fd",
     "agent-core/tests/test_guard_policy.py": "6387600c2fde3dc9368104bbcc7ae076ebcbf6c700a8460713c2d500e31eaf69",
-    "agent-core/tests/test_install_matrix.py": "b1344cddd917dc78ec28000af846780fdc1ee0a7ca18ab3a68f73548d73ca2b5",
+    "agent-core/tests/test_install_matrix.py": "fec2378cbc37e5529e8a9bed468e135b0447ee98cd2b96409a2cb08f265bddf1",
     "agent-core/tests/test_installer.py": "7ad3440a7348c6e6269c842d90d48605cf0b45510e2a6099331a78d0a51261ba",
     "agent-core/tests/test_observability.py": "68837c2fcd8f2ad6b8f5f66b699684d35dd7acec6952f16e2563d9468385d2f4",
     "agent-core/tests/test_release.py": "93a7684b841dc71ee12a56b49e68d52bc739cba9c6f33d6c1e514ec709bbc7ec",
@@ -72,5 +72,5 @@
     "templates/QA-REPORT.md": "013dbb93593ff7798ef99403adb631deb2e6e884a9b330ce5d5fbaadf6a4c36e",
     "templates/TASK-REQUEST.md": "4d51b31bc5c8eb0fc3ffbc57a8a89a356abba508bed832191b8f6be008202e53"
   },
-  "version": "4.2.1"
+  "version": "4.2.2"
 }
