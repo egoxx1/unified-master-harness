@@ -58,7 +58,7 @@ flowchart LR
 | Layer | File | Role |
 |---|---|---|
 | Product truth | `PROJECT.md` | What the product is and must never break (you write it) |
-| Work policy | `AGENTS.md` | How agents size, change, verify and stop (49 lines, ~2,200 tokens) |
+| Work policy | `AGENTS.md` | How agents size, change, verify and stop (51 lines, ~2,400 tokens) |
 | Procedures | `.agents/skills/` | Six skills, loaded only when the task matches |
 | Enforcement | `agent-core/hooks/` | One policy, one small adapter per CLI |
 | Provider wiring | `.claude/` `.codex/` `.agents/hooks.json` | Hooks, permissions, sandbox |
@@ -101,11 +101,12 @@ Every number comes from a real run of the scripts in this repository (v4.2.1, Oc
 ¹ No usable Codex account at test time. ² Real Codex CLI driven by a local stand-in model; a negative
 control with the hooks removed fails as expected.
 
-**Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 20%
-more** than no harness, and every run was correct either way. On easy tasks today's models already
-make minimal fixes, so the harness does not make them shorter. The overhead is mostly fixed context
-(~4,800 input tokens per turn, about half of it Claude Code's own sandbox instructions). What it buys
-is the safety layer and a consistent self-check before finishing.
+**Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
+more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
+tasks the agent ran the test suite **9/9** times (0/9 without the harness), and every bug fix left a
+regression test (**6/6**, versus 0/6). About 4,900 input tokens per turn are fixed context, roughly half
+of it Claude Code's own sandbox instructions. If you prefer fewer tokens, the benchmark page shows which
+two switches bring it back to about +20%.
 
 → [Verification report](docs/VERIFICATION-REPORT.md) · [Benchmark and how to cut the overhead](docs/BENCHMARK.md)
 

@@ -10,63 +10,71 @@ function. Each task runs 3 times in a fresh repository **without** the harness a
 (installed by `install/apply.py`), same prompt, same CLI flags, same allowed tools. Measured:
 
 - cost and tokens, from Claude Code's own final report;
-- changed lines in project files (harness files excluded);
+- changed lines in project files, tests included (harness files excluded);
 - correctness, by hidden tests the agent never sees;
-- whether the agent checked its own change (ran tests or a Python check).
+- whether the agent ran the test suite, or at least checked its change some other way.
 
-## Results (medians of 3 runs, after the AGENTS.md trim below)
+## Results for the current version (medians of 3 runs)
 
-| Task | Cost without → with | Input tokens without → with | Product lines changed | Correct |
+| Task | Cost without → with | Input tokens without → with | Lines changed (incl. tests) | Correct |
 |---|---|---|---|---|
-| typo | $0.087 → $0.101 (+17%) | 92.9k → 107.0k | 2 → 2 | 3/3, 3/3 |
-| bugfix | $0.091 → $0.115 (+26%) | 93.4k → 144.7k | 2 → 2 | 3/3, 3/3 |
-| slugify | $0.095 → $0.118 (+24%) | 125.1k → 180.7k | 2 → 2 | 3/3, 3/3 |
-| discount | $0.102 → $0.118 (+16%) | 156.6k → 180.6k | 7 → 7 | 3/3, 3/3 |
-| **All 24 runs** | **$1.12 → $1.34 (+20%)** | | | **12/12, 12/12** |
+| typo | $0.087 → $0.102 (+17%) | 92.9k → 107.4k | 2 → 2 | 3/3, 3/3 |
+| bugfix | $0.090 → $0.142 (+57%) | 93.4k → 262.6k | 2 → 9 | 3/3, 3/3 |
+| slugify | $0.097 → $0.134 (+39%) | 125.3k → 258.2k | 2 → 7 | 3/3, 3/3 |
+| discount | $0.090 → $0.130 (+44%) | 93.3k → 220.9k | 7 → 18 | 3/3, 3/3 |
+| **All 24 runs** | **$1.08 → $1.53 (+42%)** | | | **12/12, 12/12** |
 
-Self-checks on the three non-trivial tasks: with the harness 9/9 runs checked their change, without it
-8/9 (7/9 in the earlier run). Running the actual test suite was rare in both arms.
+On the three non-trivial tasks (9 runs per side):
+
+| | Without harness | With harness |
+|---|---|---|
+| Ran the test suite | 0/9 | **9/9** |
+| Checked the change in any way | 6/9 | **9/9** |
+| Bug fixes that left a regression test | 0/6 | **6/6** |
 
 ## What this means
 
-- **On small tasks the harness costs about 20% more, and does not make code shorter or more
-  correct**, because without it the model already solves these tasks with minimal diffs. These tasks
-  are too easy to show differences in correctness; they measure overhead.
-- The overhead is mostly fixed context, not extra work: about **4,800 input tokens per turn**
-  (measured by removing one part at a time):
+- **The harness changes behavior, and that behavior costs tokens.** With it, the agent runs the tests
+  every time and leaves a regression test after every bug fix. Without it, the agent usually checks the
+  fix with a one-off command and never touches the tests. The extra lines are those tests; the product
+  code change is the same size in both arms.
+- **On these easy tasks both arms were always correct,** so the extra work did not change today's
+  result. Its value is the test left behind: the same bug cannot quietly come back.
+- **About 4,900 input tokens per turn are fixed context** (measured by removing one part at a time):
 
   | Part | Tokens per turn |
   |---|---|
   | Claude Code's own sandbox instructions (shown whenever the sandbox is on) | ~2,700 |
-  | `AGENTS.md` | ~2,200 |
+  | `AGENTS.md` (51 lines) | ~2,400 |
   | Everything else: `CLAUDE.md` note, secret-file deny rules, skill/subagent/command listing | a few hundred |
   | Hooks | ~0 |
 
-  (Each part was measured by removing it alone; the parts overlap slightly, so they do not add up exactly.)
+  (Each part was measured by removing it alone; the parts overlap slightly, so they do not add up
+  exactly.) Most of it is served from the prompt cache, which is why cost rises less than input tokens.
+- The rest of the price buys the safety layer: hooks, secret protection and the sandbox (see
+  `VERIFICATION-REPORT.md`).
 
-  Most of it is served from the prompt cache, which is why cost rises less than input tokens.
-- What the 20% buys is not visible in these numbers: the safety hooks, secret protection and the
-  sandbox (see `VERIFICATION-REPORT.md`), plus a consistent self-check before finishing.
+## How the cost moved between versions
 
-## Trimming AGENTS.md (done)
+| Version of `AGENTS.md` | Overhead per turn | Cost, 24 runs (without → with) | Tests run on non-trivial tasks (with) |
+|---|---|---|---|
+| 117 lines (first public draft) | ~5,700 tokens | $1.17 → $1.43 (+22%) | 4/9 |
+| 49 lines, same rules, duplicates removed | ~4,800 tokens | $1.12 → $1.34 (+20%) | 1/9 |
+| 51 lines, + dependency and regression-test rules (current) | ~4,900 tokens | $1.08 → $1.53 (+42%) | **9/9** |
 
-The first run used a 117-line `AGENTS.md` (9.4 KB). It repeated what the skills already say. It was
-rewritten to 49 lines (6.6 KB) with every rule kept: per-turn overhead fell from about 5,700 to about
-4,800 tokens. Total cost over 24 runs went from +22% to +20%. Skill routing stayed 12/12 on Claude Code
-after the change.
-
-| | before trim | after trim |
-|---|---|---|
-| Harness overhead per turn | ~5,700 tokens | ~4,800 tokens |
-| Cost, 24 runs (without → with) | $1.17 → $1.43 (+22%) | $1.12 → $1.34 (+20%) |
+Trimming the policy made it cheaper without changing behavior. The regression-test rule is the
+deliberate exception: it doubles the cost increase in exchange for a tested fix every time.
 
 ## If you want fewer tokens
 
-Turning off the Claude Code sandbox (`"sandbox": {"enabled": false}`) saves about 2,700 tokens per
-turn, but then secret files and writes outside the project are guarded only by hooks and permission
-rules, not by the OS. V4 keeps it on.
+- Remove the regression-test line from `AGENTS.md` §7: back to about +20% on these tasks, without the tests.
+- Turn off the Claude Code sandbox (`"sandbox": {"enabled": false}`): about 2,700 tokens less per turn,
+  but secret files and writes outside the project are then guarded only by hooks and permission rules,
+  not by the OS.
+
+V4 keeps both on.
 
 ## Not measured yet
 
-Medium and large tasks (multi-file changes, real debugging), where process discipline should matter
-more, and Codex and Antigravity. Contributions of such tasks to `bench/` are welcome.
+Medium and large tasks (multi-file changes, real debugging), and Codex and Antigravity. Contributions of
+such tasks to `bench/` are welcome.

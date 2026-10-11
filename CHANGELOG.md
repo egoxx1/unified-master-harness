@@ -16,6 +16,10 @@
 - `dev-verify` now triggers for any code, config or schema change, including refactors and
   performance work meant to keep behavior the same (found by the Antigravity eval: an index
   optimization was judged "not behavior-changing" and left unverified).
+- `AGENTS.md`: new rules for dependencies (add one only when needed; ask before a new runtime
+  dependency) and regression tests (a bug fix in a repository with tests adds a test that fails before
+  and passes after). §8 now says to ask before planning or starting work that needs approval, and that
+  "don't ask me" is not approval (fixed a case that failed in 2 of 6 repeated runs).
 - `bench/`: with/without-harness efficiency benchmark on Claude Code; results in `docs/BENCHMARK.md`.
 - Public release files: README (English, Korean), MIT license, contributing and security guides,
   verification report.
