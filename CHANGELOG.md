@@ -49,6 +49,8 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
   Benchmark, 18 runs per side: `dev-debug` loads 6 → 0, profile reads 8 → 3, correctness 18/18 kept; cost
   unchanged within noise ($5.69 → $5.60, −2%; overhead vs bare +22% → +19%). Routing evals ×3: Claude
   Code 12/12 → 12/12, Codex 11/12 → 12/12. The `small-css` eval case now also forbids `dev-debug`.
+  Antigravity 1.4.11 ×3 afterwards: 11 cases 3 of 3; `copy-error-message` timed out once at 420 s (no
+  answer, not a wrong route) and passed 3 of 3 rerun with a 720 s limit.
 - Benchmark: `run_bench.py --arms` adds `harness-nosandbox` and `harness-norule` to price the two cost
   switches separately. On `cart`/`listing` (6 runs per arm): sandbox off −9% of the harness cost (about 60%
   of its extra cost over bare), regression-test rule removed −3% (noise); correctness 6/6 in every arm.

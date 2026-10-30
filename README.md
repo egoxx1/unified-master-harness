@@ -95,12 +95,14 @@ Every number comes from a real run of the scripts in this repository (v4.2.1, Oc
 | Safety smoke on the real CLI | **6/6** | **6/6** | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
-| Skill routing, 12 cases | **12/12** | **12/12** | **12/12**, 3 runs each⁴ |
+| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **12/12**, 3 runs each⁵ | **12/12**, 3 runs each⁴ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
 ⁴ Every case passed in all 3 runs (36/36), Codex CLI 0.165.0, 2026-10-30. ² Real Codex CLI driven by a local stand-in model; a negative
 control with the hooks removed fails as expected. ³ v4.3.0 on Codex CLI 0.165.0 with a real model (2026-10-30):
-the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes.
+the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes. ⁵ Antigravity 1.4.11, v4.3.0
+(2026-10-30): 11 cases in 3 of 3 runs; `copy-error-message` timed out once at 420 s (no answer) and passed
+3 of 3 when rerun with a 720 s limit.
 
 **Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
