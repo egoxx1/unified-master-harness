@@ -73,12 +73,12 @@ deliberate exception: it doubles the cost increase in exchange for a tested fix 
 
 ## If you want fewer tokens
 
-- Remove the regression-test line from `AGENTS.md` §7: back to about +20% on these tasks, without the tests.
+- Remove the regression-test line from `AGENTS.md` §7: back to about +20% on these tasks (4.2.1), without the tests.
 - Turn off the Claude Code sandbox (`"sandbox": {"enabled": false}`): about 2,700 tokens less per turn,
   but secret files and writes outside the project are then guarded only by hooks and permission rules,
   not by the OS.
 
-V4 keeps both on.
+V4 keeps both on. On the larger tasks (below) the sandbox was the bigger part and the rule was noise.
 
 ### What each switch costs on the larger tasks (measured 2026-10-30)
 
