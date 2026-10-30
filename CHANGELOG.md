@@ -24,9 +24,9 @@ Safety:
   asks; `curl … | python3 -m json.tool` and `curl -o file` stay allowed. Codex: `lua`, `R`, `julia`, `php -a`,
   `rails console` (also through `bundle exec`), `mysqlsh`, `sqlplus` and `gdb` without inline code or a script
   are denied like other bare sessions.
-- Codex and Antigravity hooks deny tool input over 512 KB before parsing it: the policy takes about 1.7 s per MB
-  of shell text and both CLIs run the tool once a hook passes its 5 s timeout. Unit tests time the policy on
-  inputs just under the cap.
+- Codex and Antigravity hooks deny tool input over 128 KB before parsing it: both CLIs run the tool once a hook
+  passes its 5 s timeout, and the policy takes up to ~2 s per MB of shell text on a laptop and about three times
+  that on CI runners (a first 512 KB cap took 2.5–3.2 s there). A unit test times inputs just under the cap.
 - Antigravity's `--sandbox` flag was tested on 1.4.11: a `touch` outside the project into the home folder
   succeeded with and without it, so it is not used and Antigravity still has no OS-level layer here.
 

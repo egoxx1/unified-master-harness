@@ -10,7 +10,7 @@ from policy import classify_generic  # noqa: E402
 from hook_log import record  # noqa: E402
 from scope import project_hooks_dir, should_defer  # noqa: E402
 
-MAX_INPUT_BYTES = 512 * 1024  # as in codex_pretool.py: deny what could not be checked within the 5 s timeout
+MAX_INPUT_BYTES = 128 * 1024  # as in codex_pretool.py: deny what could not be checked within the 5 s timeout
 
 # Antigravity's "allow" auto-approves the tool call, so only a small, fully
 # matched set of read-only/dev-check commands may return it.

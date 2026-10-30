@@ -329,7 +329,7 @@ class AdapterTests(unittest.TestCase):
     def test_oversized_input_is_denied_fast(self):
         # Codex and Antigravity run the tool when the hook passes its 5 s timeout, so a huge command must be denied up front.
         import time
-        big = 'echo ' + 'a ' * 400_000  # ~800 KB
+        big = 'echo ' + 'a ' * 100_000  # ~200 KB
         for script, event in (('agent-core/hooks/codex_pretool.py', {'tool_name': 'Bash', 'tool_input': {'command': big}}),
                               ('agent-core/hooks/antigravity_pretool.py', {'toolCall': {'name': 'run_command', 'args': {'CommandLine': big}}})):
             with self.subTest(script=script):
@@ -341,11 +341,11 @@ class AdapterTests(unittest.TestCase):
 
     def test_policy_stays_far_inside_the_hook_timeout(self):
         import time
-        heredoc = "apply_patch <<'EOF'\n*** Begin Patch\n*** Update File: src/a.py\n" + '+x\n' * 100_000 + "*** End Patch\nEOF"
-        for command in ('echo ' + 'a ' * 200_000, heredoc, ' && '.join(['ls x'] * 10_000)):  # each just under the 512 KB cap
+        heredoc = "apply_patch <<'EOF'\n*** Begin Patch\n*** Update File: src/a.py\n" + '+x\n' * 43_000 + "*** End Patch\nEOF"
+        for command in ('echo ' + 'a ' * 64_000, heredoc, ' && '.join(['ls x'] * 14_000)):  # each just under the 128 KB cap
             started = time.monotonic()
             P.classify_generic('Bash', {'command': command}); P.interactive_session(command)
-            self.assertLess(time.monotonic() - started, 2.5)
+            self.assertLess(time.monotonic() - started, 1.5)  # ~0.3 s on a laptop, ~1 s on a slow CI runner; the hook gets 5 s
 
     def test_codex_fails_closed_on_bad_input(self):
         for raw in ('not-json', '[]', '"text"'):
