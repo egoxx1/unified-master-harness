@@ -198,5 +198,23 @@ class CodexHookProbeTests(unittest.TestCase):
         self.assertEqual({'command': ['bash', '-lc', 'ls']}, probe.call_arguments('shell', 'ls'))
 
 
+class BenchTaskTests(unittest.TestCase):
+    def test_every_hidden_test_fails_on_the_untouched_project(self):
+        # A bench task is only a measurement if its acceptance test cannot pass before the agent works.
+        import tempfile
+        tasks = json.loads((ROOT/'bench/tasks.json').read_text())
+        self.assertIn('large', {t['kind'] for t in tasks})
+        for task in tasks:
+            with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
+                repo = Path(tmp) / 'p'
+                shutil.copytree(ROOT/'bench/project', repo)
+                (repo/'tests_hidden').mkdir()
+                (repo/'tests_hidden/__init__.py').write_text('')
+                shutil.copy2(ROOT/'bench/hidden'/task['hidden'], repo/'tests_hidden'/task['hidden'])
+                proc = subprocess.run([sys.executable, '-B', '-m', 'unittest', 'tests_hidden.' + task['hidden'][:-3]],
+                                      cwd=repo, capture_output=True, text=True, timeout=60)
+                self.assertNotEqual(0, proc.returncode, task['id'])
+
+
 if __name__ == '__main__':
     unittest.main()

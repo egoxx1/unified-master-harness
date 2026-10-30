@@ -78,3 +78,16 @@ V4 keeps both on.
 
 Medium and large tasks (multi-file changes, real debugging), and Codex and Antigravity. Contributions of
 such tasks to `bench/` are welcome.
+
+## Larger tasks (added in 4.3.0, not measured yet)
+
+Two multi-file tasks were added because the four above are too small for process discipline to matter:
+
+- `cart`: build `shop/cart.py` on top of the existing helpers. The existing `paginate()` returns one item
+  too many and the prompt does not say so; only an agent that tests its cart's paging finds and fixes it.
+- `listing`: three symptoms from a bug report, caused by bugs in three files (`pagination.py`, `text.py`
+  twice), with edge cases (`truncate` for every limit 0-7) the report only hints at.
+
+Both hidden tests fail on the untouched project and pass on a reference solution (checked by a unit test
+and by hand). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
+

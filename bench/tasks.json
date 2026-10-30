@@ -1,10 +1,8 @@
 [
-  {"id": "typo", "kind": "trivial", "hidden": "test_readme.py",
-   "prompt": "Fix the spelling mistake \"recieve\" in README.md."},
-  {"id": "bugfix", "kind": "bug", "hidden": "test_paginate.py",
-   "prompt": "Bug report: paginate(items, page=2, size=10) in shop/pagination.py returns 11 items instead of 10. Fix it."},
-  {"id": "slugify", "kind": "bug", "hidden": "test_slugify.py",
-   "prompt": "slugify(\"Hello  World!!\") in shop/text.py returns \"hello--world\" but should return \"hello-world\". Fix it."},
-  {"id": "discount", "kind": "feature", "hidden": "test_discount.py",
-   "prompt": "Add discount(price, percent) to shop/pricing.py: return the price after a percentage discount, rounded to cents. Raise ValueError if percent is outside 0-100."}
+  {"id": "typo", "kind": "trivial", "hidden": "test_readme.py", "prompt": "Fix the spelling mistake \"recieve\" in README.md."},
+  {"id": "bugfix", "kind": "bug", "hidden": "test_paginate.py", "prompt": "Bug report: paginate(items, page=2, size=10) in shop/pagination.py returns 11 items instead of 10. Fix it."},
+  {"id": "slugify", "kind": "bug", "hidden": "test_slugify.py", "prompt": "slugify(\"Hello  World!!\") in shop/text.py returns \"hello--world\" but should return \"hello-world\". Fix it."},
+  {"id": "discount", "kind": "feature", "hidden": "test_discount.py", "prompt": "Add discount(price, percent) to shop/pricing.py: return the price after a percentage discount, rounded to cents. Raise ValueError if percent is outside 0-100."},
+  {"id": "cart", "kind": "large", "hidden": "test_cart.py", "prompt": "Add a shopping cart in a new module shop/cart.py: class Cart with add(sku, price, qty=1) (qty must be a positive integer, otherwise ValueError; adding an existing sku increases its quantity), remove(sku) (KeyError if the sku is not in the cart), lines() returning [(sku, price, qty), ...] in the order skus were first added, subtotal() = sum of price*qty rounded to cents, total(percent=0) = the subtotal after a percentage discount (percent must be 0-100, otherwise ValueError) with tax added by shop.pricing.with_tax, rounded to cents, and page(n, size) returning the lines on 1-based page n via shop.pagination.paginate. Reuse the existing helpers."},
+  {"id": "listing", "kind": "large", "hidden": "test_listing.py", "prompt": "Bug reports from the storefront product listing: with 25 products and 10 per page, page 2 shows 11 products; the product 'Summer  Sale!!' gets the URL slug 'summer--sale'; and titles shortened with truncate(title, 2) come out as '...', longer than the limit. Find and fix the causes."}
 ]

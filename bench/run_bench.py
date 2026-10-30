@@ -11,7 +11,8 @@ Claude Code runs the task prompt headless in each (same CLI flags, same allowed 
   - correct = hidden acceptance tests (bench/hidden/, never visible to the agent) pass;
   - tests / checked = the agent itself ran the tests / any python check of its change.
 
-  python3 bench/run_bench.py --reps 3            # 4 tasks x 2 arms x 3 = 24 Claude runs
+  python3 bench/run_bench.py --reps 3            # 6 tasks x 2 arms x 3 = 36 Claude runs
+  python3 bench/run_bench.py --tasks cart,listing --reps 3   # the two multi-file tasks only
   python3 bench/run_bench.py --tasks typo --reps 1 --model sonnet
 
 Results: bench/results/<timestamp>.json and a printed summary (medians per task and arm).
