@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-POLICY_VERSION = '4.3.0'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
+POLICY_VERSION = '4.3.1'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
 
 SAFE_ENV_NAMES = {'.env.example', '.env.sample', '.env.template', '.env.defaults'}
 SENSITIVE_BASENAMES = {
@@ -99,7 +99,11 @@ SESSION_VALUE_FLAGS = {'bash': {'-o', '+o', '-O', '+O'}, 'zsh': {'-o', '+o'}, 's
                        'python': {'-W', '-X', '-Q'},
                        'redis-cli': {'-h', '-p', '-a', '-n', '-u', '--user', '--pass', '-s'},
                        'sqlite3': {'-cmd', '-separator', '-newline', '-nullvalue'},
-                       'tmux': {'-L', '-S', '-f', '-c', '-T'}, 'screen': {'-S', '-c', '-e', '-p', '-t'}}
+                       'tmux': {'-L', '-S', '-f', '-c', '-T'}, 'screen': {'-S', '-c', '-e', '-p', '-t'},
+                       'irb': {'-r', '-I'}, 'ghci': {'-i', '-package'},
+                       'ssh': {'-B', '-b', '-c', '-D', '-E', '-e', '-F', '-I', '-i', '-J', '-L', '-l', '-m', '-O', '-o',
+                               '-p', '-Q', '-R', '-S', '-W', '-w'}}
+SSH_NO_SHELL = {'-N', '-W', '-O', '-G', '-Q', '-V'}  # forwarding, control and query modes start no remote shell
 INTERACTIVE_MODULES = {'code', 'pdb', 'IPython', 'idlelib', 'asyncio'}
 NODE_RUN_FLAGS = {'--test', '--watch', '--run', '--check', '--eval', '--print', '-c'}
 RUNNER_VALUE_FLAGS = {'--with', '--python', '-p', '--from', '--project', '--directory', '--package', '--extra',
@@ -634,6 +638,24 @@ def interactive_session(command: str, depth: int = 0) -> str:
                     or (program == 'redis-cli' and positional):
                 continue
             return program
+        elif program == 'irb':
+            if not positional:
+                return program
+        elif program == 'ghci':
+            if '-e' not in flags:  # `ghci File.hs` loads the file, then still waits for input
+                return program
+        elif program == 'ssh':
+            i = 0
+            while i < len(args) and args[i].startswith('-'):
+                i += 2 if args[i] in SESSION_VALUE_FLAGS['ssh'] else 1
+            if {a[:2] for a in args[:i] if a.startswith('-')} & SSH_NO_SHELL:
+                continue
+            remote = args[i + 1:]  # ssh joins the words after the host into one remote command
+            if not remote:
+                return 'ssh'
+            found = interactive_session(' '.join(remote), depth + 1)
+            if found:
+                return f'ssh {found}'
         elif program in MULTIPLEXERS:
             sub = positional[0] if positional else ''
             if program == 'tmux' and (not sub or sub in TMUX_ATTACH) and '-d' not in flags:
@@ -677,7 +699,7 @@ def classify_generic(tool_name: str, tool_input: dict[str, Any], cwd: str | None
             verdict = _worst(verdict, _classify_patch(patch, posixpath.join(base, cd) if cd else base, root or '', require_headers=False))
         return verdict
     if tool_name in {'Read', 'view_file', 'read_file'}:
-        path = _first_value(tool_input, ('file_path', 'path', 'AbsolutePath', 'TargetFile'))
+        path = _first_value(tool_input, ('file_path', 'path', 'AbsolutePath', 'TargetFile', 'Path'))  # Path: Antigravity 1.4 read_file
         if sensitive_path(path):
             return _sensitive(f'Reading sensitive file {Path(path).name} may expose credentials.')
     if tool_name == 'Grep':

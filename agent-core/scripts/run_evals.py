@@ -108,13 +108,15 @@ def main() -> int:
     ap = argparse.ArgumentParser(description='Run V4 skill-routing evals against a real agent CLI.')
     ap.add_argument('--provider', choices=['claude', 'antigravity', 'codex'], required=True)
     ap.add_argument('--cases', default='', help='comma-separated case ids (default: all)')
-    ap.add_argument('--timeout', type=int, default=240)
+    ap.add_argument('--timeout', type=int, default=0, help='seconds per run (default: 720 on antigravity, 240 otherwise)')
     ap.add_argument('--codex-model', default='')
     ap.add_argument('--basis', choices=['declared', 'union'], default='declared')
     ap.add_argument('--repeat', type=int, default=1, help='run every case N times; a case passes only if all N pass')
     args = ap.parse_args()
     if args.repeat < 1:
         ap.error('--repeat must be at least 1')
+    # Antigravity took 300-575 s per case on 1.4.11; 420 s still cut one run off before its answer line.
+    args.timeout = args.timeout or (720 if args.provider == 'antigravity' else 240)
     sys.stdout.reconfigure(line_buffering=True)  # show progress when redirected to a log
 
     cases = json.loads((ROOT / 'agent-core/evals/skill-routing.json').read_text(encoding='utf-8'))

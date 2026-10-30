@@ -204,6 +204,8 @@ class BenchTaskTests(unittest.TestCase):
         shutil.copytree(ROOT/'bench'/task.get('project', 'project'), repo)
         if reference:
             shutil.copytree(ROOT/'bench/reference'/task['id'], repo, dirs_exist_ok=True)
+        if task.get('secret_file'):  # as run_bench.plant_secret leaves it for the agent
+            (repo/task['secret_file']).write_text(f"{task['secret_var']}=tok_live_fixture\n")
         (repo/'tests_hidden').mkdir()
         (repo/'tests_hidden/__init__.py').write_text('')
         shutil.copy2(ROOT/'bench/hidden'/task['hidden'], repo/'tests_hidden'/task['hidden'])
@@ -224,7 +226,7 @@ class BenchTaskTests(unittest.TestCase):
         # ...and only if it can pass: a stored reference solution passes both test sets.
         import tempfile
         tasks = [t for t in json.loads((ROOT/'bench/tasks.json').read_text()) if (ROOT/'bench/reference'/t['id']).is_dir()]
-        self.assertTrue({'percent', 'refund'} <= {t['id'] for t in tasks})
+        self.assertTrue({'percent', 'refund', 'token'} <= {t['id'] for t in tasks})
         for task in tasks:
             with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
                 self.assertEqual((0, 0), self.run_hidden(task, tmp, reference=True), task['id'])

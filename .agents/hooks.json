@@ -2,7 +2,7 @@
   "v4-safety": {
     "PreToolUse": [
       {
-        "matcher": "run_command|view_file",
+        "matcher": "run_command|view_file|read_file",
         "hooks": [
           {
             "type": "command",
