@@ -1,5 +1,71 @@
 # Changelog
 
+## 4.3.0 — 2026-10-30
+
+Codex gaps found by checking the hook against the current Codex source. Unit-tested, reviewed once by a
+fresh-context reviewer. On Codex CLI 0.165.0 with a real model: safety smoke 8/8, skill routing 12/12 with
+every case passing in 3 of 3 runs.
+
+**Upgrading from 4.2:** open Codex in the project and review the new `apply_patch` hook in `/hooks`.
+Codex runs only hooks it has trusted. The existing shell hook is unchanged, so its trust carries over
+and all 4.2 protection keeps running; until the new hook is reviewed, edits through `apply_patch` are
+unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust record.
+
+- `apply_patch` is guarded on Codex. Codex edits files with `apply_patch`, which the hook did not match,
+  so a Codex agent could rewrite `AGENTS.md` or the hook's own `policy.py`. A second hook group in
+  `.codex/hooks.json` now matches `apply_patch` (the shell group is left byte-identical so its trust
+  survives the upgrade). The policy reads the patch's file headers and denies edits of harness
+  enforcement files (Codex hooks cannot ask); a patch with no readable header is denied.
+- Shell-routed patches are checked too: Codex applies `apply_patch <<'EOF' …`, `cd dir && apply_patch …`
+  and `bash -lc "apply_patch …"` itself while the hook only sees `Bash`.
+- Patch paths are resolved against the event's `cwd` and the repository root, so `hooks/policy.py` from
+  inside `agent-core/` is caught, while a nested `packages/web/AGENTS.md` (ordinary Codex guidance) and
+  files in other repositories are allowed.
+- Bare interactive sessions are denied on Codex. Input sent later through `write_stdin` never reaches a
+  PreToolUse hook, so `bash`, `python3`, `python3 -`, `python3 -m pdb`, `node`, `ipython`, `uv run python`
+  and the same inside `bash -lc "…"`, `( … )` or `{ …; }` were a way around every check. Commands that
+  carry their own input stay allowed: `bash -lc "…"`, scripts, `-c`/`-m`/`-e`, `node --test`, heredocs,
+  `… | bash`, `< file`. Other providers check every command and keep allowing these.
+- The same rule covers database shells and multiplexers started without inline work (`psql`, `mysql`,
+  `sqlite3 db`, `mongosh`, `redis-cli`, `tmux`, `tmux attach`, `screen -r`); `psql -c`, `mysql -e`,
+  `sqlite3 db "select …"`, `tmux new -d …` and `screen -dmS …` stay allowed.
+- The Codex hook fails closed: unparsable input, a non-object `tool_input` and any internal error print a
+  deny, and the `apply_patch` hook falls back to a deny when the script cannot start. Codex runs the tool
+  when a hook errors or exits with a code other than 0 or 2.
+- Hook log: patches (tool or shell-routed) are logged as `apply_patch <file names>`, and heredoc bodies
+  are no longer part of any logged command shape.
+- `provider_smoke.py` for Codex: probe (b) reads the secret with `cat` (Codex has no file-reading tool,
+  so the old wording could only produce a false FAIL), and new probes (f) `apply_patch` on `AGENTS.md`
+  and (g) a bare `bash` session must be blocked, logged and leave `AGENTS.md` unchanged.
+- `run_evals.py --repeat N` runs every routing case N times; a case passes only when all N runs pass, and
+  cases that pass only sometimes are listed as unstable (a single pass hid a 2-in-6 failure before).
+- Benchmark: two multi-file tasks, `cart` (a feature built on a helper with a hidden off-by-one) and
+  `listing` (three bugs in three files from one symptom-level report); a unit test checks that every
+  hidden acceptance test fails on the untouched project. Measured on Claude Code (12 runs): same results
+  with and without the harness (6/6 correct, 6/6 ran tests), about 23% more cost with it.
+- Less fixed process on small and medium tasks: `dev-debug` (in `AGENTS.md` §5 and its description) is
+  only for bugs whose cause is not yet known, and not for spacing, size or color fixes; `AGENTS.md` §6
+  says to open `agent-core/project/profile.md` only when a needed command is not in the files already read.
+  Benchmark, 18 runs per side: `dev-debug` loads 6 → 0, profile reads 8 → 3, correctness 18/18 kept; cost
+  unchanged within noise ($5.69 → $5.60, −2%; overhead vs bare +22% → +19%). Routing evals ×3: Claude
+  Code 12/12 → 12/12, Codex 11/12 → 12/12. The `small-css` eval case now also forbids `dev-debug`.
+  Antigravity 1.4.11 ×3 afterwards: 11 cases 3 of 3; `copy-error-message` timed out once at 420 s (no
+  answer, not a wrong route) and passed 3 of 3 rerun with a 720 s limit.
+- Benchmark: `run_bench.py --arms` adds `harness-nosandbox` and `harness-norule` to price the two cost
+  switches separately. On `cart`/`listing` (6 runs per arm): sandbox off −9% of the harness cost (about 60%
+  of its extra cost over bare), regression-test rule removed −3% (noise); correctness 6/6 in every arm.
+- Benchmark: two tasks meant to favor the harness in `bench/project2`, `percent` (callers with rates in a
+  config module and a JSON file) and `refund` (symptom four files from its cause), with stored reference
+  solutions; a unit test checks they pass the hidden and visible tests. Result: the harness did not win
+  (3/3 vs 3/3 on both, +26% and +11% cost). A hidden-test assertion outside the documented contract
+  (float input to `to_cents`) first scored one harness run as failing; it was removed and the run rescored.
+- `run_bench.py` no longer crashes on a stream event whose `message` is a string.
+- Rerun on Claude Opus 5.5: without the harness the agent also ran the tests (27/27 non-typo runs); the
+  harness still left a regression test after every bug fix (15/15 vs 9/15).
+- `doctor.py`: the advice for an older user-level hook copy no longer says to overwrite every `*_pretool.py`
+  (a local copy can carry its own rules); back up, copy `policy.py`/`hook_log.py`/`scope.py`, diff the rest.
+- `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
+
 ## 4.2.2 — 2026-10-11
 
 - `check_agent_config.py`: in an installed project it now scans only harness code for personal-home paths.

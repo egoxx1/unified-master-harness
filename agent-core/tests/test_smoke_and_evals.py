@@ -83,6 +83,27 @@ class SmokeEvaluationTests(unittest.TestCase):
         out = provider_smoke.evaluate(GOOD.replace(', project-context', ''), LOG, 0)
         self.assertEqual('FAIL', out['steps']['skills']['result'])
 
+    def test_codex_prompt_uses_shell_read_and_adds_patch_and_session_probes(self):
+        prompt = provider_smoke.CODEX_PROMPT
+        self.assertIn('(b) shell: cat .env.local', prompt)
+        self.assertNotIn('file-reading tool', prompt)
+        self.assertIn('(f) with apply_patch', prompt)
+        self.assertIn('(g) shell: bash', prompt)
+        self.assertIn('g: ALLOWED or BLOCKED', prompt)
+        cmd = provider_smoke.provider_command('codex', Path('/tmp/x'), type('A', (), {'codex_model': ''})())
+        self.assertEqual(prompt, cmd[-1])
+
+    def test_codex_steps_need_patch_and_session_evidence(self):
+        good = GOOD.replace('e: BLOCKED', 'e: BLOCKED\nf: BLOCKED\ng: BLOCKED')
+        log = [dict(LOG[0], shape='cat .env.local')] + LOG[1:] + [
+            {'kind': 'harness', 'shape': 'apply_patch AGENTS.md', 'reason': ''},
+            {'kind': 'interactive', 'shape': 'bash', 'reason': ''},
+        ]
+        self.assertEqual('PASS', provider_smoke.evaluate(good, log, 0, steps_spec=provider_smoke.CODEX_STEPS)['result'])
+        out = provider_smoke.evaluate(good, log[:-2], 0, steps_spec=provider_smoke.CODEX_STEPS)
+        self.assertEqual(('FAIL', 'FAIL'), (out['steps']['f']['result'], out['steps']['g']['result']))
+        self.assertNotIn('f', provider_smoke.evaluate(GOOD, LOG, 0)['steps'])  # other providers keep five steps
+
 
 class EvalScoringTests(unittest.TestCase):
     def test_loaded_from_tool_calls_and_declared_line(self):
@@ -107,6 +128,35 @@ class EvalScoringTests(unittest.TestCase):
         self.assertEqual(['none'], run_evals.answer_lines(echo + '\nSKILLS: none'))
         _, declared = run_evals.used_skills(echo + '\nSKILLS: dev-debug, dev-verify')
         self.assertEqual({'dev-debug', 'dev-verify'}, declared)
+
+    def test_repeat_marks_a_case_unstable_unless_every_run_passes(self):
+        # A fake `claude` on PATH answers correctly only on its first call for each case.
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / 'claude'
+            counter = Path(tmp) / 'count'
+            fake.write_text('#!/bin/sh\nn=$(cat "%s" 2>/dev/null || echo 0); echo $((n+1)) > "%s"\n'
+                            'if [ "$n" = 0 ]; then echo "SKILLS: dev-debug, dev-verify"; else echo "SKILLS: dev-debug"; fi\n' % (counter, counter))
+            fake.chmod(0o755)
+            env = dict(os.environ, PATH=tmp + os.pathsep + os.environ['PATH'])
+            proc = subprocess.run([sys.executable, '-B', str(ROOT/'agent-core/scripts/run_evals.py'), '--provider', 'claude',
+                                   '--cases', 'bug-api-500', '--repeat', '3'], text=True, capture_output=True, env=env, timeout=120)
+            self.assertEqual(1, proc.returncode, proc.stdout + proc.stderr)
+            self.assertIn('0/1 routing cases passed', proc.stdout)
+            self.assertIn('unstable: bug-api-500 1/3', proc.stdout)
+            report = json.loads(Path(proc.stdout.strip().splitlines()[-1]).read_text())
+            Path(proc.stdout.strip().splitlines()[-1]).unlink()
+            self.assertEqual((3, 1, 3), (report['repeat'], report['results'][0]['passes'], len(report['results'][0]['attempts'])))
+
+    def test_combine_and_summarize(self):
+        case = {'id': 'x', 'expect': ['dev-verify']}
+        good = {'pass': True, 'answered': True, 'problems': [], 'loaded': [], 'declared': ['dev-verify'], 'seconds': 1, 'output_tail': ''}
+        bad = dict(good, **{'pass': False, 'problems': ['missing dev-verify'], 'declared': []})
+        stable = run_evals.combine(case, [good, good])
+        flaky = run_evals.combine(dict(case, id='y'), [good, bad])
+        self.assertTrue(stable['pass'])
+        self.assertEqual((False, ['missing dev-verify']), (flaky['pass'], flaky['problems']))
+        self.assertEqual({'passed': 1, 'total': 2, 'unanswered': 0, 'unstable': ['y 1/2']}, run_evals.summarize([stable, flaky]))
 
     def test_dev_verify_is_not_confused_with_dev_ui_verify(self):
         _, declared = run_evals.used_skills('SKILLS: dev-ui-verify')
@@ -146,6 +196,38 @@ class CodexHookProbeTests(unittest.TestCase):
         self.assertEqual({'cmd': 'ls'}, probe.call_arguments('exec_command', 'ls'))
         self.assertEqual({'command': 'ls'}, probe.call_arguments('shell_command', 'ls'))
         self.assertEqual({'command': ['bash', '-lc', 'ls']}, probe.call_arguments('shell', 'ls'))
+
+
+class BenchTaskTests(unittest.TestCase):
+    def run_hidden(self, task: dict, tmp: str, reference: bool) -> tuple[int, int]:
+        repo = Path(tmp) / 'p'
+        shutil.copytree(ROOT/'bench'/task.get('project', 'project'), repo)
+        if reference:
+            shutil.copytree(ROOT/'bench/reference'/task['id'], repo, dirs_exist_ok=True)
+        (repo/'tests_hidden').mkdir()
+        (repo/'tests_hidden/__init__.py').write_text('')
+        shutil.copy2(ROOT/'bench/hidden'/task['hidden'], repo/'tests_hidden'/task['hidden'])
+        run = lambda *a: subprocess.run([sys.executable, '-B', '-m', 'unittest', *a], cwd=repo,  # noqa: E731
+                                        capture_output=True, text=True, timeout=60).returncode
+        return run('tests_hidden.' + task['hidden'][:-3]), run('discover', '-s', 'tests')
+
+    def test_every_hidden_test_fails_on_the_untouched_project(self):
+        # A bench task is only a measurement if its acceptance test cannot pass before the agent works.
+        import tempfile
+        tasks = json.loads((ROOT/'bench/tasks.json').read_text())
+        self.assertIn('large', {t['kind'] for t in tasks})
+        for task in tasks:
+            with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
+                self.assertNotEqual(0, self.run_hidden(task, tmp, reference=False)[0], task['id'])
+
+    def test_reference_solutions_pass_hidden_and_visible_tests(self):
+        # ...and only if it can pass: a stored reference solution passes both test sets.
+        import tempfile
+        tasks = [t for t in json.loads((ROOT/'bench/tasks.json').read_text()) if (ROOT/'bench/reference'/t['id']).is_dir()]
+        self.assertTrue({'percent', 'refund'} <= {t['id'] for t in tasks})
+        for task in tasks:
+            with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
+                self.assertEqual((0, 0), self.run_hidden(task, tmp, reference=True), task['id'])
 
 
 if __name__ == '__main__':

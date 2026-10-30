@@ -35,7 +35,7 @@ Use only the skill whose trigger matches. Skills never expand scope or authorize
 
 - `project-context`: project commands, runtime or layout are unknown, stale or being bootstrapped.
 - `dev-plan`: large, cross-boundary, ambiguous, migration, architectural or significant product/UX work, before implementation.
-- `dev-debug`: bugs, failing tests, crashes, regressions or unexplained behavior, before proposing fixes.
+- `dev-debug`: bugs, failing tests, crashes, regressions or unexplained behavior whose cause is not yet known, before proposing fixes. Skip it when the report or one read of the named code already shows the cause, and for spacing, size or color fixes.
 - `dev-ui-verify`: any change to how the UI looks or behaves (style, spacing, size, color, layout, components, interaction), scaled to the change; not text-only copy edits.
 - `dev-verify`: before claiming any code, config or schema change complete, including refactors and performance work meant to keep behavior the same; not for text-only or docs-only edits.
 - `dev-review`: only when explicitly requested or for high-risk changes defined by that skill.
@@ -43,7 +43,7 @@ Use only the skill whose trigger matches. Skills never expand scope or authorize
 ## 6. Working in the repository
 
 - Read only what the task needs: affected files, nearby callers, local instructions, existing tests, relevant docs. No full survey for a local task.
-- Use repository-native commands and abstractions. Stable commands and runtime facts belong in `agent-core/project/profile.md`, not rediscovered each session.
+- Use repository-native commands and abstractions. When you need a command or runtime fact the files you are reading do not show, check `agent-core/project/profile.md` before rediscovering it; do not open it otherwise.
 - Bugs: reproduce first, find where behavior first diverges, test one hypothesis at a time, fix the root cause at the narrowest correct boundary. No stacked speculative fixes or fallbacks that hide an unexplained failure.
 
 ## 7. Verification

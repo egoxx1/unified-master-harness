@@ -130,7 +130,7 @@ def check_claude(home: Path, repo: Path) -> list[Finding]:
             else:
                 shown = '.'.join(map(str, theirs)) if theirs else 'pre-4.2 (no POLICY_VERSION)'
                 out.append(Finding('WARN', 'claude', f'A user-level PreToolUse hook runs an older harness copy ({other}/hooks, policy {shown}) in every project.',
-                                   'Both hooks run; the stricter answer wins. Copy agent-core/hooks/{policy,hook_log,scope,*_pretool}.py from this template into that folder.'))
+                                   'Both hooks run; the stricter answer wins. Back up that folder, copy agent-core/hooks/{policy,hook_log,scope}.py from this template into it, and diff each *_pretool.py before replacing it: a local copy may carry its own rules.'))
     if not out:
         out.append(Finding('OK', 'claude', 'No user-level Claude Code setting weakens the project hooks.'))
     return out
@@ -148,6 +148,27 @@ def _project_trust(projects: dict, repo: Path) -> str:
     return best
 
 
+def _codex_trusted_hook_groups(cfg: dict, repo: Path) -> set[int]:
+    """PreToolUse group indexes of this repo's .codex/hooks.json that Codex has a trust record for.
+
+    Codex stores trust under [hooks.state."<path>:pre_tool_use:<group>:<handler>"] with the hash of the
+    matcher and handler. A record whose hash no longer matches counts here but is shown as "Modified"
+    in /hooks and does not run; doctor cannot recompute Codex's hash.
+    """
+    target = (repo / '.codex/hooks.json').resolve()
+    found: set[int] = set()
+    for key, value in (((cfg.get('hooks') or {}).get('state')) or {}).items():
+        match = re.fullmatch(r'(.+):pre_tool_use:(\d+):0', str(key).strip('"'))
+        if not match or not isinstance(value, dict) or not value.get('trusted_hash') or value.get('enabled') is False:
+            continue
+        try:
+            if Path(match.group(1)).expanduser().resolve() == target:
+                found.add(int(match.group(2)))
+        except Exception:
+            continue
+    return found
+
+
 def check_codex(home: Path, repo: Path) -> list[Finding]:
     path = home / '.codex/config.toml'
     if not path.exists():
@@ -160,7 +181,16 @@ def check_codex(home: Path, repo: Path) -> list[Finding]:
         out.append(Finding('WARN', 'codex', 'This repository is not trusted in Codex, so .codex/hooks.json and .codex/config.toml are ignored.',
                            'Open Codex here once, trust the project, then review/trust the V4 hook with /hooks.'))
     else:
-        out.append(Finding('INFO', 'codex', 'Project is trusted. Codex also requires the V4 hook itself to be trusted once via /hooks.'))
+        hooks = load_json(repo / '.codex/hooks.json') or {}
+        groups = ((hooks.get('hooks') or {}).get('PreToolUse')) or []
+        trusted = _codex_trusted_hook_groups(cfg, repo)
+        missing = [g.get('matcher', '?') for i, g in enumerate(groups) if isinstance(g, dict) and i not in trusted]
+        if groups and missing:
+            out.append(Finding('WARN', 'codex', 'Codex has not trusted these V4 hooks, so they do not run: ' + ', '.join(missing) + '.',
+                               'Open Codex in this project, run /hooks and review the V4 hooks (needed again after an upgrade adds a hook).'))
+        else:
+            out.append(Finding('INFO', 'codex', 'Project is trusted and every V4 hook has a trust record. If /hooks shows one as '
+                               '"Modified", review it again: Codex skips modified hooks.'))
     if (cfg.get('features') or {}).get('hooks') is False or (cfg.get('features') or {}).get('codex_hooks') is False:
         out.append(Finding('RISK', 'codex', 'Hooks are disabled in [features]; the V4 safety hook never runs.', 'Remove hooks = false.'))
     user_open = cfg.get('approval_policy') == 'never' and cfg.get('sandbox_mode') == 'danger-full-access'

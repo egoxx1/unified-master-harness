@@ -34,10 +34,13 @@ Each verdict carries a `kind`, and adapters map it as follows (measured on 2026-
 | destructive | `git reset --hard`, `git checkout -- .`, `git restore .`, `git stash clear/drop`, `rm -rf ~/` or `/Users/<name>` or system roots, force push, env dump | deny | deny | deny |
 | sensitive | reading/copying `.env*`, keys, `.netrc`, kube config | ask | deny (hooks cannot ask) | deny |
 | external | `git push`, publish, deploy, prod DB drop, mutating `curl` | ask (+ `permissions.ask` rules) | deny (hooks cannot ask) | deny (`force_ask` is auto-approved under `toolPermission: always-proceed`) |
-| harness | shell writes to `AGENTS.md`, `CLAUDE.md`, `agent-core/{hooks,scripts,evals}`, `.codex`, `.agents`, `.claude/settings*` | ask (also blocked at OS level by the sandbox) | deny | deny |
+| harness | shell writes to `AGENTS.md`, `CLAUDE.md`, `agent-core/{hooks,scripts,evals}`, `.codex`, `.agents`, `.claude/settings*`; on Codex also `apply_patch` edits of those files | ask (also blocked at OS level by the sandbox) | deny | deny |
+| interactive | Codex only: a shell or REPL started with no command (`bash`, `python3`, `node`), whose later input arrives through `write_stdin`, which never reaches a hook | — | deny | — |
 | other | ordinary dev commands | no output (normal permission flow) | no output | allow only for a small read-only/dev-check list, otherwise ask |
 
 The policy unwraps `sh/bash/zsh -c`, `eval`, `sudo`, `timeout`, `xargs`, `env` and leading `VAR=` assignments, and skips git global options (`-C`, `-c`, `--git-dir`, ...) before matching.
+
+On Codex, `.codex/hooks.json` has two groups: `Bash|exec_command|shell|local_shell` (Codex names its shell tool `Bash` in hook input) and `apply_patch` (its edit tool), checked against the Codex source on 2026-10-30. Codex trusts each group separately by index and by a hash of its matcher and handler, so the shell group is kept unchanged across releases; a new group needs one review in `/hooks`. Patch targets are read from the file headers, also when a shell command runs `apply_patch` (Codex applies it itself), and resolved against the event `cwd` and the repository root. Codex runs the tool anyway when a hook errors, times out or exits with a code other than 0 or 2, so `codex_pretool.py` prints a deny on every internal failure and the `apply_patch` group falls back to a deny when the script cannot start.
 
 The guard is deliberately narrow. It complements provider sandbox/permissions; it is not a complete shell firewall.
 

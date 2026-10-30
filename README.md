@@ -9,7 +9,7 @@ A shared operating harness for **Claude Code**, **Codex** and **Antigravity**, m
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#requirements)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
-[![Version](https://img.shields.io/badge/version-4.2.2-2F4858.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.3.0-2F4858.svg)](CHANGELOG.md)
 
 **English** · [한국어](README.ko.md)
 
@@ -90,16 +90,19 @@ Trust the folder once in Codex (`/hooks`) and Antigravity, then read **[START-HE
 
 Every number comes from a real run of the scripts in this repository (v4.2.1, October 2026).
 
-| Check | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161.0 |
+| Check | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161–0.165 |
 |---|:---:|:---:|:---:|
-| Safety smoke on the real CLI | **6/6** | **6/6** | not run¹ |
+| Safety smoke on the real CLI | **6/6** | **6/6** | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
-| Skill routing, 12 cases | **12/12** | **12/12** | not run¹ |
+| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **12/12**, 3 runs each⁵ | **12/12**, 3 runs each⁴ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
-¹ No usable Codex account at test time. ² Real Codex CLI driven by a local stand-in model; a negative
-control with the hooks removed fails as expected.
+⁴ Every case passed in all 3 runs (36/36), Codex CLI 0.165.0, 2026-10-30. ² Real Codex CLI driven by a local stand-in model; a negative
+control with the hooks removed fails as expected. ³ v4.3.0 on Codex CLI 0.165.0 with a real model (2026-10-30):
+the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes. ⁵ Antigravity 1.4.11, v4.3.0
+(2026-10-30): 11 cases in 3 of 3 runs; `copy-error-message` timed out once at 420 s (no answer) and passed
+3 of 3 when rerun with a 720 s limit.
 
 **Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
@@ -107,6 +110,12 @@ tasks the agent ran the test suite **9/9** times (0/9 without the harness), and 
 regression test (**6/6**, versus 0/6). About 4,900 input tokens per turn are fixed context, roughly half
 of it Claude Code's own sandbox instructions. If you prefer fewer tokens, the benchmark page shows which
 two switches bring it back to about +20%.
+
+**Rerun on 4.3.0 with Claude Opus 5.5 (2026-10-30), eight tasks including four multi-file ones:** the
+harness cost **+11% to +27%** per task and was never more correct (30/30 both arms). The newer model ran
+the tests without the harness too (27/27), so that advantage is gone; what remains is the regression test
+after a bug fix (**15/15** with the harness, 9/15 without). Two tasks built to favor the harness
+(`percent`, `refund`) did not. On the larger tasks about 60% of the extra cost is the sandbox.
 
 → [Verification report](docs/VERIFICATION-REPORT.md) · [Benchmark and how to cut the overhead](docs/BENCHMARK.md)
 
@@ -176,10 +185,16 @@ Claude Code, edits through the edit tool ask for your approval.
 
 Everything above was measured, but some things have not been, and they are listed here on purpose.
 
-1. **Codex with a real model is untested.** The Codex hooks are proven with a stand-in model; whether a
-   Codex model follows `AGENTS.md` and picks the right skills has not been measured yet.
-2. **Large tasks are unmeasured.** The benchmark covers four small tasks. Multi-file changes and real
-   debugging, where process discipline should matter most, have no data yet.
+1. **The routing eval is lenient.** It checks required and forbidden skills only. It let Codex choose
+   `dev-debug` for a one-line spacing fix in three of three runs until that case forbade it; the policy now
+   rules this out (12/12 ×3 on Codex and Claude Code). Three Codex-only
+   gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
+   fail open) are closed in 4.3.0, covered by unit tests and by the real-model Codex smoke (8/8).
+2. **On larger tasks the harness has not paid off yet.** On four multi-file tasks (`cart`, `listing`, and
+   `percent`, `refund`, built to favor the harness) both arms were equally correct; the harness cost +11%
+   to +27%. Cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise. Turning the
+   sandbox off cut about 60% of the extra cost on `cart`/`listing`; removing the regression-test rule did
+   not change it beyond noise. A task where the harness wins on current models is still missing.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
    (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.
 4. **The guard is not a firewall.** It does not see secrets printed through variables, targets passed

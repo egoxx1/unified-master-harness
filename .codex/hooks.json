@@ -12,6 +12,17 @@
             "statusMessage": "Checking V4 repository safety policy"
           }
         ]
+      },
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/agent-core/hooks/codex_pretool.py\" || printf '%s\\n' '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"V4 safety hook could not run, so the edit is blocked.\"}}'",
+            "timeout": 5,
+            "statusMessage": "Checking V4 harness file protection"
+          }
+        ]
       }
     ]
   }

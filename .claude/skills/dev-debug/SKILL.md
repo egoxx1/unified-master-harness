@@ -1,6 +1,6 @@
 ---
 name: dev-debug
-description: Diagnose bugs, failing tests, crashes, regressions, and unexplained behavior before proposing a fix. Use when there is an observed failure or mismatch; do not use for ordinary feature implementation.
+description: Diagnose bugs, failing tests, crashes, regressions, and unexplained behavior whose cause is not yet known, before proposing a fix. Use when there is an observed failure or mismatch. Skip it when the report or one read of the named code already shows the cause (fix and verify directly), for spacing, size or color fixes, and for ordinary feature implementation.
 ---
 
 # Systematic Debugging

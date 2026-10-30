@@ -205,6 +205,140 @@ class AdapterTests(unittest.TestCase):
         if not existed:
             self.assertFalse(cache.exists(), 'hook adapters created __pycache__')
 
+    # Gaps found against the Codex source (2026-10-30): apply_patch edits, write_stdin
+    # sessions and hook failures all let a tool call through without a guard.
+    PATCH = '*** Begin Patch\n*** Update File: {}\n@@\n-a\n+b\n*** End Patch'
+
+    def codex_decision(self, event):
+        code, out, err = hook('agent-core/hooks/codex_pretool.py', event)
+        self.assertEqual(0, code, err)
+        return json.loads(out)['hookSpecificOutput']['permissionDecision'] if out else 'allow'
+
+    def test_codex_apply_patch_to_harness_files_denies(self):
+        for target in ('AGENTS.md', 'CLAUDE.md', 'agent-core/hooks/policy.py', 'agent-core/scripts/doctor.py',
+                       '.claude/settings.json', str(ROOT/'AGENTS.md'), 'agent-core//hooks/./policy.py'):
+            with self.subTest(target=target):
+                event = {'tool_name': 'apply_patch', 'tool_input': {'command': self.PATCH.format(target)}}
+                self.assertEqual('deny', self.codex_decision(event))
+        moved = '*** Begin Patch\n*** Update File: src/a.py\n*** Move to: CLAUDE.md\n*** End Patch'
+        self.assertEqual('deny', self.codex_decision({'tool_name': 'apply_patch', 'tool_input': {'command': moved}}))
+
+    def test_codex_apply_patch_to_project_files_allows(self):
+        for target in ('src/app.py', 'docs/AGENTS-notes.md', 'README.md', 'agent-core/project/profile.md'):
+            with self.subTest(target=target):
+                event = {'tool_name': 'apply_patch', 'tool_input': {'command': self.PATCH.format(target)}}
+                self.assertEqual('allow', self.codex_decision(event))
+
+    def test_codex_patch_paths_are_resolved_from_the_repository_root(self):
+        cases = [  # (target, cwd, expected)
+            ('hooks/policy.py', ROOT/'agent-core', 'deny'),
+            ('../AGENTS.md', ROOT/'docs', 'deny'),
+            ('packages/web/AGENTS.md', ROOT, 'allow'),  # nested AGENTS.md is ordinary project guidance
+            ('AGENTS.md', ROOT/'docs', 'allow'),
+            ('/somewhere/else/AGENTS.md', ROOT, 'allow'),
+        ]
+        for target, cwd, expected in cases:
+            with self.subTest(target=target, cwd=str(cwd)):
+                event = {'tool_name': 'apply_patch', 'cwd': str(cwd), 'tool_input': {'command': self.PATCH.format(target)}}
+                self.assertEqual(expected, self.codex_decision(event))
+
+    def test_codex_shell_routed_apply_patch_is_checked(self):
+        # Codex applies `apply_patch` itself when a shell command invokes it; the hook only sees "Bash".
+        body = self.PATCH.format('{}')
+        for command in ("apply_patch <<'EOF'\n" + body.format('agent-core/hooks/policy.py') + "\nEOF",
+                        "cd agent-core && apply_patch <<'EOF'\n" + body.format('hooks/policy.py') + "\nEOF",
+                        "bash -lc \"applypatch <<'EOF'\n" + body.format('AGENTS.md') + "\nEOF\"",
+                        "apply_patch '" + body.format('CLAUDE.md') + "'"):
+            with self.subTest(command=command[:40]):
+                self.assertEqual('deny', self.codex_decision({'tool_name': 'Bash', 'cwd': str(ROOT), 'tool_input': {'command': command}}))
+        for command in ("apply_patch <<'EOF'\n" + body.format('src/app.py') + "\nEOF", 'rg -n apply_patch src',
+                        "grep -rn 'Update File' docs"):
+            with self.subTest(command=command[:40]):
+                self.assertEqual('allow', self.codex_decision({'tool_name': 'Bash', 'cwd': str(ROOT), 'tool_input': {'command': command}}))
+
+    def test_codex_matcher_covers_apply_patch(self):
+        groups = json.loads((ROOT/'.codex/hooks.json').read_text())['hooks']['PreToolUse']
+        self.assertIn('apply_patch', [m for g in groups for m in g['matcher'].split('|')])
+
+    def test_codex_shell_hook_group_is_unchanged_so_existing_trust_holds(self):
+        # Codex keys hook trust by group index and hashes matcher + handler: changing group 0 would
+        # silently switch every V4 shell guard off after an upgrade until the user re-reviews /hooks.
+        group = json.loads((ROOT/'.codex/hooks.json').read_text())['hooks']['PreToolUse'][0]
+        self.assertEqual({'matcher': 'Bash|exec_command|shell|local_shell', 'hooks': [{
+            'type': 'command',
+            'command': 'python3 -B "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/agent-core/hooks/codex_pretool.py"',
+            'timeout': 5, 'statusMessage': 'Checking V4 repository safety policy'}]}, group)
+
+    def test_codex_interactive_sessions_deny(self):
+        for command in ('bash', 'bash -l', 'zsh', 'env bash', 'exec bash', 'python3', 'python3 -i app.py', 'python3 -',
+                        'node', 'node -i', 'npm test && bash', 'bash -i 2>&1 | tee s.log', 'false || bash', 'bash -lc "python3"',
+                        '{ bash; }', '(python3)', 'bash -o pipefail', 'python3 -X dev', 'python3 -m pdb app.py', 'uv run python',
+                        'ipython', 'node 2>/dev/null', 'psql -h db mydb', 'mysql -u root', 'sqlite3 app.db', 'mongosh',
+                        'redis-cli -h h', 'tmux', 'tmux attach -t w', 'screen -r w', 'uv run --with x python'):
+            with self.subTest(command=command):
+                self.assertEqual('deny', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
+
+    def test_codex_commands_with_their_own_input_allow(self):
+        for command in ('bash -lc "npm test"', 'bash scripts/build.sh', 'python3 app.py', 'python3 -c "print(1)"',
+                        'python3 -m pytest -q', "python3 - <<'PY'\nprint(1)\nPY", 'node app.js', 'node -e "1"',
+                        'python3 --version', 'node -v', 'bash --version', 'node --test', 'node --watch app.js',
+                        'git commit -m "fix\nnode\n"', "cat > run.sh <<'EOF'\nbash\nEOF", 'echo ls | bash', 'bash < s.sh',
+                        'uv run pytest', 'python3 app.py 2>&1 | tee log', 'psql -c "select 1"', 'psql mydb < q.sql',
+                        'mysql -e "show tables"', 'sqlite3 app.db ".tables"', 'mongosh --eval "1"', 'redis-cli -h h ping',
+                        'tmux new -d -s w "npm run dev"', 'tmux ls', 'screen -dmS w npm start'):
+            with self.subTest(command=command):
+                self.assertEqual('allow', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
+
+    def test_interactive_rule_is_codex_only(self):
+        # Claude Code and Antigravity check every command they run, so a bare shell needs no block there.
+        _, out, _ = hook('agent-core/hooks/claude_pretool.py', {'tool_name': 'Bash', 'tool_input': {'command': 'bash'}})
+        self.assertEqual('', out)
+
+    def test_codex_fails_closed_on_bad_input(self):
+        for raw in ('not-json', '[]', '"text"'):
+            with self.subTest(raw=raw):
+                proc = subprocess.run([sys.executable, str(ROOT/'agent-core/hooks/codex_pretool.py')], input=raw, text=True,
+                                      capture_output=True, timeout=4, cwd=ROOT, env=dict(os.environ, V4_HOOK_LOG='off'))
+                self.assertEqual(0, proc.returncode, proc.stderr)
+                self.assertEqual('deny', json.loads(proc.stdout)['hookSpecificOutput']['permissionDecision'])
+        for tool_input in ('git reset --hard', ['x'], 5):
+            with self.subTest(tool_input=tool_input):
+                self.assertEqual('deny', self.codex_decision({'tool_name': 'Bash', 'tool_input': tool_input}))
+
+    def test_codex_hook_command_fails_closed_when_it_cannot_run(self):
+        groups = json.loads((ROOT/'.codex/hooks.json').read_text())['hooks']['PreToolUse']
+        command = next(g for g in groups if g['matcher'] == 'apply_patch')['hooks'][0]['command']
+        event = json.dumps({'tool_name': 'apply_patch', 'tool_input': {'command': self.PATCH.format('src/app.py')}})
+        with tempfile.TemporaryDirectory() as outside:
+            for env in (dict(os.environ), dict(os.environ, PATH='/nonexistent')):
+                proc = subprocess.run(['/bin/sh', '-c', command], input=event, text=True, capture_output=True,
+                                      cwd=outside, timeout=4, env=dict(env, V4_HOOK_LOG='off'))
+                self.assertEqual(0, proc.returncode)
+                self.assertEqual('deny', json.loads(proc.stdout)['hookSpecificOutput']['permissionDecision'])
+        proc = subprocess.run(['/bin/sh', '-c', command], input=event, text=True, capture_output=True,
+                              cwd=ROOT, timeout=4, env=dict(os.environ, V4_HOOK_LOG='off'))
+        self.assertEqual('', proc.stdout.strip())
+
+    def test_apply_patch_log_never_contains_patch_body(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp)/'log.jsonl'
+            patch = '*** Begin Patch\n*** Update File: AGENTS.md\n@@\n-a\n+TOKEN_v4_secret_body\n*** End Patch'
+            subprocess.run([sys.executable, str(ROOT/'agent-core/hooks/codex_pretool.py')], text=True, capture_output=True,
+                           input=json.dumps({'tool_name': 'apply_patch', 'tool_input': {'command': patch}}),
+                           cwd=ROOT, timeout=4, env=dict(os.environ, V4_HOOK_LOG=str(log)))
+            entry = json.loads(log.read_text())
+            self.assertEqual(('harness', 'apply_patch AGENTS.md'), (entry['kind'], entry['shape']))
+            self.assertNotIn('TOKEN_v4_secret_body', log.read_text())
+            log.unlink()
+            for command in ("apply_patch <<'EOF'\n" + patch + "\nEOF", "cat > AGENTS.md <<'EOF'\nTOKEN_v4_secret_body\nEOF"):
+                subprocess.run([sys.executable, str(ROOT/'agent-core/hooks/codex_pretool.py')], text=True, capture_output=True,
+                               input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': command}}),
+                               cwd=ROOT, timeout=4, env=dict(os.environ, V4_HOOK_LOG=str(log)))
+            text = log.read_text()
+            self.assertEqual(2, len(text.splitlines()))
+            self.assertIn('"apply_patch AGENTS.md"', text)
+            self.assertNotIn('TOKEN_v4_secret_body', text)
+
     def test_codex_normal_allows_silently(self):
         _, out, _ = hook('agent-core/hooks/codex_pretool.py', {'tool_name': 'Bash', 'tool_input': {'command': 'npm test'}})
         self.assertEqual('', out)

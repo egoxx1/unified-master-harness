@@ -58,14 +58,19 @@ def command_shape(command: str) -> str:
 
 def subject_of(tool: str, tool_input: dict[str, Any]) -> tuple[str, str]:
     """Return (shape, raw) for the logged tool call; raw is only used for the digest."""
+    from policy import patch_targets, shell_patch, strip_heredoc_bodies  # local import keeps adapters' import order simple
     command = ''
     for key in ('command', 'CommandLine', 'cmd', 'script'):
         value = tool_input.get(key)
         if isinstance(value, str) and value:
             command = value
             break
+    if tool == 'apply_patch' or (command and shell_patch(command) and patch_targets(command)):
+        # A patch body is file content: log only the names of the files it touches.
+        names = [Path(t).name for t in patch_targets(command)][:5]
+        return ' '.join(['apply_patch', *names])[:200], command
     if command:
-        return command_shape(command), command
+        return command_shape(strip_heredoc_bodies(command)), command
     for key in ('file_path', 'path', 'AbsolutePath', 'TargetFile', 'glob'):
         value = tool_input.get(key)
         if isinstance(value, str) and value:

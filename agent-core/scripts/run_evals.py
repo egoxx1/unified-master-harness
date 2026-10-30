@@ -111,7 +111,10 @@ def main() -> int:
     ap.add_argument('--timeout', type=int, default=240)
     ap.add_argument('--codex-model', default='')
     ap.add_argument('--basis', choices=['declared', 'union'], default='declared')
+    ap.add_argument('--repeat', type=int, default=1, help='run every case N times; a case passes only if all N pass')
     args = ap.parse_args()
+    if args.repeat < 1:
+        ap.error('--repeat must be at least 1')
     sys.stdout.reconfigure(line_buffering=True)  # show progress when redirected to a log
 
     cases = json.loads((ROOT / 'agent-core/evals/skill-routing.json').read_text(encoding='utf-8'))
@@ -119,44 +122,68 @@ def main() -> int:
     cases = [c for c in cases if not wanted or c['id'] in wanted]
     results = []
     for case in cases:
-        fixture = make_fixture(ROOT)
-        started = time.time()
-        try:
-            proc = subprocess.run(command(args.provider, TEMPLATE.format(prompt=case['prompt']), fixture, args), cwd=fixture,
-                                  text=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=args.timeout + 60)
-            text, code = (proc.stdout or '') + '\n' + (proc.stderr or ''), proc.returncode
-        except subprocess.TimeoutExpired:
-            text, code = 'TIMEOUT', 124
-        output = text
-        if args.provider == 'antigravity':
-            text += '\n' + antigravity_tool_calls(started - 1, fixture)
-        loaded, declared = used_skills(text)
-        answered = bool(answer_lines(output if args.provider == 'antigravity' else text))
-        used = (loaded | declared) if args.basis == 'union' or not answered else declared
-        ok, problems = score(case, used)
-        if not answered and args.basis == 'declared':
-            # No final SKILLS line (timeout or the agent stopped early): not a routing decision either way.
-            ok, problems = False, ['no answer: the agent ended without a SKILLS line' + (' (timed out)' if code == 124 else '')]
-        if code not in (0, 124) and not (loaded or declared or answered):
-            ok, problems = False, [f'provider error (exit {code}): ' + ' '.join(text.strip().splitlines()[-2:])[:200]]
-        results.append({'id': case['id'], 'pass': ok, 'answered': answered, 'problems': problems, 'loaded': sorted(loaded),
-                        'declared': sorted(declared), 'expect': case.get('expect', []), 'forbid': case.get('forbid', []),
-                        'seconds': round(time.time() - started), 'output_tail': '' if ok else output.strip()[-800:]})
-        shutil.rmtree(fixture, ignore_errors=True)
-        label = 'PASS' if ok else ('FAIL' if answered else 'NOANS')
-        print(f"{label:5} {case['id']:18} loaded={','.join(sorted(loaded)) or '-'} declared={','.join(sorted(declared)) or '-'}"
-              + (f"  ({'; '.join(problems)})" if problems else ''))
-    passed = sum(r['pass'] for r in results)
-    unanswered = sum(not r['answered'] for r in results)
-    print(f'{args.provider}: {passed}/{len(results)} routing cases passed (basis: {args.basis})'
-          + (f'; {unanswered} gave no answer -- rerun them with --cases and a longer --timeout' if unanswered else ''))
+        runs = []
+        for attempt in range(args.repeat):
+            run = run_case(case, args)
+            runs.append(run)
+            label = 'PASS' if run['pass'] else ('FAIL' if run['answered'] else 'NOANS')
+            tag = f"{case['id']}" + (f' #{attempt + 1}' if args.repeat > 1 else '')
+            print(f"{label:5} {tag:22} loaded={','.join(run['loaded']) or '-'} declared={','.join(run['declared']) or '-'}"
+                  + (f"  ({'; '.join(run['problems'])})" if run['problems'] else ''))
+        results.append(combine(case, runs))
+    summary = summarize(results)
+    print(f"{args.provider}: {summary['passed']}/{summary['total']} routing cases passed (basis: {args.basis}"
+          + (f', every one of {args.repeat} runs' if args.repeat > 1 else '') + ')'
+          + (f"; unstable: {', '.join(summary['unstable'])}" if summary['unstable'] else '')
+          + (f"; {summary['unanswered']} gave no answer -- rerun them with --cases and a longer --timeout" if summary['unanswered'] else ''))
     out = ROOT / '.agent-state/evals' / f"{time.strftime('%Y%m%d-%H%M%S')}-{args.provider}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({'provider': args.provider, 'basis': args.basis, 'passed': passed, 'total': len(results),
-                              'unanswered': unanswered, 'results': results},
+    out.write_text(json.dumps({'provider': args.provider, 'basis': args.basis, 'repeat': args.repeat, **summary, 'results': results},
                               indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     print(out)
-    return 0 if passed == len(results) else 1
+    return 0 if summary['passed'] == summary['total'] else 1
+
+
+def run_case(case: dict, args) -> dict:
+    fixture = make_fixture(ROOT)
+    started = time.time()
+    try:
+        proc = subprocess.run(command(args.provider, TEMPLATE.format(prompt=case['prompt']), fixture, args), cwd=fixture,
+                              text=True, capture_output=True, stdin=subprocess.DEVNULL, timeout=args.timeout + 60)
+        text, code = (proc.stdout or '') + '\n' + (proc.stderr or ''), proc.returncode
+    except subprocess.TimeoutExpired:
+        text, code = 'TIMEOUT', 124
+    output = text
+    if args.provider == 'antigravity':
+        text += '\n' + antigravity_tool_calls(started - 1, fixture)
+    loaded, declared = used_skills(text)
+    answered = bool(answer_lines(output if args.provider == 'antigravity' else text))
+    used = (loaded | declared) if args.basis == 'union' or not answered else declared
+    ok, problems = score(case, used)
+    if not answered and args.basis == 'declared':
+        # No final SKILLS line (timeout or the agent stopped early): not a routing decision either way.
+        ok, problems = False, ['no answer: the agent ended without a SKILLS line' + (' (timed out)' if code == 124 else '')]
+    if code not in (0, 124) and not (loaded or declared or answered):
+        ok, problems = False, [f'provider error (exit {code}): ' + ' '.join(text.strip().splitlines()[-2:])[:200]]
+    shutil.rmtree(fixture, ignore_errors=True)
+    return {'pass': ok, 'answered': answered, 'problems': problems, 'loaded': sorted(loaded), 'declared': sorted(declared),
+            'seconds': round(time.time() - started), 'output_tail': '' if ok else output.strip()[-800:]}
+
+
+def combine(case: dict, runs: list[dict]) -> dict:
+    """One case over repeated runs: it passes only if every run passed (one pass can hide variance)."""
+    first_bad = next((r for r in runs if not r['pass']), runs[0])
+    return {'id': case['id'], 'pass': all(r['pass'] for r in runs), 'answered': all(r['answered'] for r in runs),
+            'passes': sum(r['pass'] for r in runs), 'runs': len(runs), 'problems': first_bad['problems'],
+            'loaded': first_bad['loaded'], 'declared': first_bad['declared'], 'expect': case.get('expect', []),
+            'forbid': case.get('forbid', []), 'seconds': sum(r['seconds'] for r in runs), 'output_tail': first_bad['output_tail'],
+            'attempts': [{k: r[k] for k in ('pass', 'answered', 'problems', 'declared', 'seconds')} for r in runs]}
+
+
+def summarize(results: list[dict]) -> dict:
+    return {'passed': sum(r['pass'] for r in results), 'total': len(results),
+            'unanswered': sum(not r['answered'] for r in results),
+            'unstable': [f"{r['id']} {r['passes']}/{r['runs']}" for r in results if 0 < r['passes'] < r['runs']]}
 
 
 if __name__ == '__main__':
