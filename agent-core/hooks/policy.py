@@ -96,9 +96,24 @@ REPLS = {'node', 'nodejs'}
 PYTHON = re.compile(r'python(?:3(?:\.\d+)?)?')
 RUNNERS = {'uv', 'poetry', 'pipenv', 'pdm', 'hatch'}  # `uv run python` starts the same REPL
 SESSION_VALUE_FLAGS = {'bash': {'-o', '+o', '-O', '+O'}, 'zsh': {'-o', '+o'}, 'sh': {'-o', '+o'},
-                       'python': {'-W', '-X', '-Q'}}
+                       'python': {'-W', '-X', '-Q'},
+                       'redis-cli': {'-h', '-p', '-a', '-n', '-u', '--user', '--pass', '-s'},
+                       'sqlite3': {'-cmd', '-separator', '-newline', '-nullvalue'},
+                       'tmux': {'-L', '-S', '-f', '-c', '-T'}, 'screen': {'-S', '-c', '-e', '-p', '-t'}}
 INTERACTIVE_MODULES = {'code', 'pdb', 'IPython', 'idlelib', 'asyncio'}
 NODE_RUN_FLAGS = {'--test', '--watch', '--run', '--check', '--eval', '--print', '-c'}
+RUNNER_VALUE_FLAGS = {'--with', '--python', '-p', '--from', '--project', '--directory', '--package', '--extra',
+                      '--group', '--env-file', '--index', '-e', '--env'}
+# Database shells read statements from stdin unless the command carries them (flags that do so, per client).
+DB_SESSION_INLINE = {
+    'psql': {'-c', '--command', '-f', '--file', '-l', '--list'},
+    'mysql': {'-e', '--execute'}, 'mariadb': {'-e', '--execute'},
+    'sqlite3': {'-cmd'},
+    'mongosh': {'--eval', '-f', '--file'}, 'mongo': {'--eval', '-f', '--file'},
+    'redis-cli': set(),
+}
+MULTIPLEXERS = {'tmux', 'screen'}
+TMUX_ATTACH = {'new', 'new-session', 'attach', 'attach-session', 'a', 'at'}
 SEVERITY = {'allow': 0, 'ask': 1, 'deny': 2}
 MAX_DEPTH = 3
 
@@ -565,7 +580,9 @@ def interactive_session(command: str, depth: int = 0) -> str:
         while len(tokens) > 1 and Path(tokens[0]).name in RUNNERS and tokens[1] == 'run':
             rest = tokens[2:]
             while rest and rest[0].startswith('-'):
-                rest = rest[1:]
+                flag = rest.pop(0)
+                if flag in RUNNER_VALUE_FLAGS and rest:
+                    rest.pop(0)
             tokens = _unwrap(rest)
         if not tokens or stdin_given:
             continue
@@ -608,6 +625,20 @@ def interactive_session(command: str, depth: int = 0) -> str:
                 continue
             runs = any(f.split('=', 1)[0] in NODE_RUN_FLAGS for f in flags) or any(f in {'-e', '-p'} for f in flags)
             if '-i' in flags or '--interactive' in flags or (not runs and not positional):
+                return program
+        elif program in DB_SESSION_INLINE:
+            inline = DB_SESSION_INLINE[program]
+            names = {f.split('=', 1)[0] for f in flags}
+            if names & inline or (program == 'sqlite3' and len(positional) >= 2) \
+                    or (program in ('mongosh', 'mongo') and any(a.endswith('.js') for a in positional)) \
+                    or (program == 'redis-cli' and positional):
+                continue
+            return program
+        elif program in MULTIPLEXERS:
+            sub = positional[0] if positional else ''
+            if program == 'tmux' and (not sub or sub in TMUX_ATTACH) and '-d' not in flags:
+                return program
+            if program == 'screen' and not any(f.startswith('-d') or f in {'-ls', '-list', '-Q'} for f in flags):
                 return program
     return ''
 

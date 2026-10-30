@@ -25,6 +25,9 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
   and the same inside `bash -lc "…"`, `( … )` or `{ …; }` were a way around every check. Commands that
   carry their own input stay allowed: `bash -lc "…"`, scripts, `-c`/`-m`/`-e`, `node --test`, heredocs,
   `… | bash`, `< file`. Other providers check every command and keep allowing these.
+- The same rule covers database shells and multiplexers started without inline work (`psql`, `mysql`,
+  `sqlite3 db`, `mongosh`, `redis-cli`, `tmux`, `tmux attach`, `screen -r`); `psql -c`, `mysql -e`,
+  `sqlite3 db "select …"`, `tmux new -d …` and `screen -dmS …` stay allowed.
 - The Codex hook fails closed: unparsable input, a non-object `tool_input` and any internal error print a
   deny, and the `apply_patch` hook falls back to a deny when the script cannot start. Codex runs the tool
   when a hook errors or exits with a code other than 0 or 2.
@@ -33,6 +36,8 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
 - `provider_smoke.py` for Codex: probe (b) reads the secret with `cat` (Codex has no file-reading tool,
   so the old wording could only produce a false FAIL), and new probes (f) `apply_patch` on `AGENTS.md`
   and (g) a bare `bash` session must be blocked, logged and leave `AGENTS.md` unchanged.
+- `run_evals.py --repeat N` runs every routing case N times; a case passes only when all N runs pass, and
+  cases that pass only sometimes are listed as unstable (a single pass hid a 2-in-6 failure before).
 - `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
 
 ## 4.2.2 — 2026-10-11

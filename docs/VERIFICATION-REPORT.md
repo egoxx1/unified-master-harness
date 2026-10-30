@@ -97,8 +97,8 @@ planning or starting such work and that "don't ask me" is not approval: 6 of 6 r
 - Antigravity's `grep_search` tool is not matched (its argument names are not documented).
 - Codex (4.3.0, checked against the Codex source, not yet on a real model): `apply_patch` edits of harness
   files (tool and shell-routed), bare `bash`/`python3`/`node` sessions and hook failures were open paths
-  and are now denied. Still open: interactive programs not on the list fed through `write_stdin` (for
-  example `psql` without `-c`, `sqlite3 db`, `tmux`), unusual wrappers (`uv run --with x python`), MCP tools
+  and are now denied, as are bare database shells (`psql`, `sqlite3 db`, ...) and `tmux`/`screen` sessions.
+  Still open: interactive programs not on the list (for example `irb`, `ghci`, `ssh host`), MCP tools
   (not matched), a missing `python3` for the shell hook group (kept unchanged so its trust survives
   upgrades), and the hook's 5 s timeout, after which Codex runs the tool.
 - Code correctness is checked by tests and by the agent's own verification and review skills. Those

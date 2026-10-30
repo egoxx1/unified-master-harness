@@ -273,7 +273,8 @@ class AdapterTests(unittest.TestCase):
         for command in ('bash', 'bash -l', 'zsh', 'env bash', 'exec bash', 'python3', 'python3 -i app.py', 'python3 -',
                         'node', 'node -i', 'npm test && bash', 'bash -i 2>&1 | tee s.log', 'false || bash', 'bash -lc "python3"',
                         '{ bash; }', '(python3)', 'bash -o pipefail', 'python3 -X dev', 'python3 -m pdb app.py', 'uv run python',
-                        'ipython', 'node 2>/dev/null'):
+                        'ipython', 'node 2>/dev/null', 'psql -h db mydb', 'mysql -u root', 'sqlite3 app.db', 'mongosh',
+                        'redis-cli -h h', 'tmux', 'tmux attach -t w', 'screen -r w', 'uv run --with x python'):
             with self.subTest(command=command):
                 self.assertEqual('deny', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
 
@@ -282,7 +283,9 @@ class AdapterTests(unittest.TestCase):
                         'python3 -m pytest -q', "python3 - <<'PY'\nprint(1)\nPY", 'node app.js', 'node -e "1"',
                         'python3 --version', 'node -v', 'bash --version', 'node --test', 'node --watch app.js',
                         'git commit -m "fix\nnode\n"', "cat > run.sh <<'EOF'\nbash\nEOF", 'echo ls | bash', 'bash < s.sh',
-                        'uv run pytest', 'python3 app.py 2>&1 | tee log'):
+                        'uv run pytest', 'python3 app.py 2>&1 | tee log', 'psql -c "select 1"', 'psql mydb < q.sql',
+                        'mysql -e "show tables"', 'sqlite3 app.db ".tables"', 'mongosh --eval "1"', 'redis-cli -h h ping',
+                        'tmux new -d -s w "npm run dev"', 'tmux ls', 'screen -dmS w npm start'):
             with self.subTest(command=command):
                 self.assertEqual('allow', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
 

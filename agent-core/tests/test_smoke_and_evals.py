@@ -129,6 +129,35 @@ class EvalScoringTests(unittest.TestCase):
         _, declared = run_evals.used_skills(echo + '\nSKILLS: dev-debug, dev-verify')
         self.assertEqual({'dev-debug', 'dev-verify'}, declared)
 
+    def test_repeat_marks_a_case_unstable_unless_every_run_passes(self):
+        # A fake `claude` on PATH answers correctly only on its first call for each case.
+        import os, tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp) / 'claude'
+            counter = Path(tmp) / 'count'
+            fake.write_text('#!/bin/sh\nn=$(cat "%s" 2>/dev/null || echo 0); echo $((n+1)) > "%s"\n'
+                            'if [ "$n" = 0 ]; then echo "SKILLS: dev-debug, dev-verify"; else echo "SKILLS: dev-debug"; fi\n' % (counter, counter))
+            fake.chmod(0o755)
+            env = dict(os.environ, PATH=tmp + os.pathsep + os.environ['PATH'])
+            proc = subprocess.run([sys.executable, '-B', str(ROOT/'agent-core/scripts/run_evals.py'), '--provider', 'claude',
+                                   '--cases', 'bug-api-500', '--repeat', '3'], text=True, capture_output=True, env=env, timeout=120)
+            self.assertEqual(1, proc.returncode, proc.stdout + proc.stderr)
+            self.assertIn('0/1 routing cases passed', proc.stdout)
+            self.assertIn('unstable: bug-api-500 1/3', proc.stdout)
+            report = json.loads(Path(proc.stdout.strip().splitlines()[-1]).read_text())
+            Path(proc.stdout.strip().splitlines()[-1]).unlink()
+            self.assertEqual((3, 1, 3), (report['repeat'], report['results'][0]['passes'], len(report['results'][0]['attempts'])))
+
+    def test_combine_and_summarize(self):
+        case = {'id': 'x', 'expect': ['dev-verify']}
+        good = {'pass': True, 'answered': True, 'problems': [], 'loaded': [], 'declared': ['dev-verify'], 'seconds': 1, 'output_tail': ''}
+        bad = dict(good, **{'pass': False, 'problems': ['missing dev-verify'], 'declared': []})
+        stable = run_evals.combine(case, [good, good])
+        flaky = run_evals.combine(dict(case, id='y'), [good, bad])
+        self.assertTrue(stable['pass'])
+        self.assertEqual((False, ['missing dev-verify']), (flaky['pass'], flaky['problems']))
+        self.assertEqual({'passed': 1, 'total': 2, 'unanswered': 0, 'unstable': ['y 1/2']}, run_evals.summarize([stable, flaky]))
+
     def test_dev_verify_is_not_confused_with_dev_ui_verify(self):
         _, declared = run_evals.used_skills('SKILLS: dev-ui-verify')
         self.assertEqual({'dev-ui-verify'}, declared)
