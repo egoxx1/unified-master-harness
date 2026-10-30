@@ -161,10 +161,13 @@ planning or starting such work and that "don't ask me" is not approval: 6 of 6 r
   a script that prints them), directories reached indirectly (`cd "$D" && rm -rf build`), other decoders
   (`gzip -dc p.gz | sh`) and code decoded inside an interpreter (`python3 -c "…b64decode…"`). The Claude sandbox and Codex workspace sandbox cover part
   of this; Antigravity has no sandbox layer.
-- Antigravity: `run_command`, `view_file`, `read_file`, `edit_file` and `write_file` are matched; the CLI has
-  no other file or shell tool (1.4.11). MCP tools are not matched on any provider. A new Antigravity release can
-  add or rename tools again, as 1.4 did, and the hook then misses them silently; rerun the smoke after each
-  upgrade. Antigravity has no OS sandbox here (`--sandbox` did not stop a write outside the project).
+- Antigravity: the hook sees every tool; `run_command`, `view_file`, `read_file`, `edit_file` and `write_file` have
+  full rules, any other tool only a check of its path-like arguments. A renamed tool whose path argument has an
+  unusual name, or a new shell-like tool, would still pass unchecked; `doctor.py` warns when the CLI version
+  differs from the last smoke test, so rerun the smoke after each upgrade. Antigravity has no OS sandbox here
+  (`--sandbox` did not stop a write outside the project).
+- MCP tools: checked on Claude Code (`mcp__.*`, measured end to end with a stdio MCP server). Not matched on Codex
+  or Antigravity, whose hook names for MCP tools were not verified.
 - Codex (4.3.0, checked against the Codex source; the `apply_patch` and bare-`bash` paths also by the real-model smoke): `apply_patch` edits of harness
   files (tool and shell-routed), bare `bash`/`python3`/`node` sessions and hook failures were open paths
   and are now denied, as are bare database shells (`psql`, `sqlite3 db`, ...) and `tmux`/`screen` sessions.

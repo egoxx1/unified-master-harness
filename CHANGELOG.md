@@ -27,6 +27,19 @@ Safety:
 - Codex and Antigravity hooks deny tool input over 128 KB before parsing it: both CLIs run the tool once a hook
   passes its 5 s timeout, and the policy takes up to ~2 s per MB of shell text on a laptop and about three times
   that on CI runners (a first 512 KB cap took 2.5–3.2 s there). A unit test times inputs just under the cap.
+- **Claude Code MCP tools are checked.** The Claude hook matched `Bash|PowerShell|Read|Grep`, so an MCP tool
+  (`mcp__<server>__<tool>`) could read `.env.local`: with a minimal stdio MCP server exposing `read_file`, the
+  secret reached the model and the hook log stayed empty. The matcher now includes `mcp__.*`; every string
+  argument is checked for secret paths, write-type tools for harness files, shell-type tools as commands. Rerun:
+  the hook asked, the secret did not reach the model.
+- The Antigravity hook matches every tool (`.*`). Known tools keep their rules; any other tool (a renamed or new
+  one, as in 1.4) has its path-like arguments checked, secret files and harness edits denied, everything else
+  left to Antigravity's own permission mode. Smoke with it: 7/7.
+- Also asked now: decompressors piped into a shell (`gzip -dc … | sh`, `zcat … | bash`), a here-string of a
+  credential variable (`cat <<< "$API_TOKEN"`), and inline code that decodes and executes a payload
+  (`python3 -c "…b64decode…os.system…"`, `node -e "…Buffer.from(…'base64')…execSync…"`).
+- `provider_smoke.py` and `run_evals.py` take `--agy-model` (Antigravity's default model quota ran out; the last
+  Antigravity runs used `gemini-3.8-flash-high`).
 - Antigravity's `--sandbox` flag was tested on 1.4.11: a `touch` outside the project into the home folder
   succeeded with and without it, so it is not used and Antigravity still has no OS-level layer here.
 
