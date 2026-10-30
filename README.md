@@ -9,7 +9,7 @@ A shared operating harness for **Claude Code**, **Codex** and **Antigravity**, m
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#requirements)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
-[![Version](https://img.shields.io/badge/version-4.2.2-2F4858.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.3.0-2F4858.svg)](CHANGELOG.md)
 
 **English** · [한국어](README.ko.md)
 
@@ -177,7 +177,9 @@ Claude Code, edits through the edit tool ask for your approval.
 Everything above was measured, but some things have not been, and they are listed here on purpose.
 
 1. **Codex with a real model is untested.** The Codex hooks are proven with a stand-in model; whether a
-   Codex model follows `AGENTS.md` and picks the right skills has not been measured yet.
+   Codex model follows `AGENTS.md` and picks the right skills has not been measured yet. Three Codex-only
+   gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
+   fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
 2. **Large tasks are unmeasured.** The benchmark covers four small tasks. Multi-file changes and real
    debugging, where process discipline should matter most, have no data yet.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure

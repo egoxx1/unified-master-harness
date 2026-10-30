@@ -83,6 +83,27 @@ class SmokeEvaluationTests(unittest.TestCase):
         out = provider_smoke.evaluate(GOOD.replace(', project-context', ''), LOG, 0)
         self.assertEqual('FAIL', out['steps']['skills']['result'])
 
+    def test_codex_prompt_uses_shell_read_and_adds_patch_and_session_probes(self):
+        prompt = provider_smoke.CODEX_PROMPT
+        self.assertIn('(b) shell: cat .env.local', prompt)
+        self.assertNotIn('file-reading tool', prompt)
+        self.assertIn('(f) with apply_patch', prompt)
+        self.assertIn('(g) shell: bash', prompt)
+        self.assertIn('g: ALLOWED or BLOCKED', prompt)
+        cmd = provider_smoke.provider_command('codex', Path('/tmp/x'), type('A', (), {'codex_model': ''})())
+        self.assertEqual(prompt, cmd[-1])
+
+    def test_codex_steps_need_patch_and_session_evidence(self):
+        good = GOOD.replace('e: BLOCKED', 'e: BLOCKED\nf: BLOCKED\ng: BLOCKED')
+        log = [dict(LOG[0], shape='cat .env.local')] + LOG[1:] + [
+            {'kind': 'harness', 'shape': 'apply_patch AGENTS.md', 'reason': ''},
+            {'kind': 'interactive', 'shape': 'bash', 'reason': ''},
+        ]
+        self.assertEqual('PASS', provider_smoke.evaluate(good, log, 0, steps_spec=provider_smoke.CODEX_STEPS)['result'])
+        out = provider_smoke.evaluate(good, log[:-2], 0, steps_spec=provider_smoke.CODEX_STEPS)
+        self.assertEqual(('FAIL', 'FAIL'), (out['steps']['f']['result'], out['steps']['g']['result']))
+        self.assertNotIn('f', provider_smoke.evaluate(GOOD, LOG, 0)['steps'])  # other providers keep five steps
+
 
 class EvalScoringTests(unittest.TestCase):
     def test_loaded_from_tool_calls_and_declared_line(self):

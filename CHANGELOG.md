@@ -1,5 +1,40 @@
 # Changelog
 
+## 4.3.0 — 2026-10-30
+
+Codex gaps found by checking the hook against the current Codex source. Unit-tested and reviewed once
+by a fresh-context reviewer; the real-model Codex smoke has still not been run.
+
+**Upgrading from 4.2:** open Codex in the project and review the new `apply_patch` hook in `/hooks`.
+Codex runs only hooks it has trusted. The existing shell hook is unchanged, so its trust carries over
+and all 4.2 protection keeps running; until the new hook is reviewed, edits through `apply_patch` are
+unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust record.
+
+- `apply_patch` is guarded on Codex. Codex edits files with `apply_patch`, which the hook did not match,
+  so a Codex agent could rewrite `AGENTS.md` or the hook's own `policy.py`. A second hook group in
+  `.codex/hooks.json` now matches `apply_patch` (the shell group is left byte-identical so its trust
+  survives the upgrade). The policy reads the patch's file headers and denies edits of harness
+  enforcement files (Codex hooks cannot ask); a patch with no readable header is denied.
+- Shell-routed patches are checked too: Codex applies `apply_patch <<'EOF' …`, `cd dir && apply_patch …`
+  and `bash -lc "apply_patch …"` itself while the hook only sees `Bash`.
+- Patch paths are resolved against the event's `cwd` and the repository root, so `hooks/policy.py` from
+  inside `agent-core/` is caught, while a nested `packages/web/AGENTS.md` (ordinary Codex guidance) and
+  files in other repositories are allowed.
+- Bare interactive sessions are denied on Codex. Input sent later through `write_stdin` never reaches a
+  PreToolUse hook, so `bash`, `python3`, `python3 -`, `python3 -m pdb`, `node`, `ipython`, `uv run python`
+  and the same inside `bash -lc "…"`, `( … )` or `{ …; }` were a way around every check. Commands that
+  carry their own input stay allowed: `bash -lc "…"`, scripts, `-c`/`-m`/`-e`, `node --test`, heredocs,
+  `… | bash`, `< file`. Other providers check every command and keep allowing these.
+- The Codex hook fails closed: unparsable input, a non-object `tool_input` and any internal error print a
+  deny, and the `apply_patch` hook falls back to a deny when the script cannot start. Codex runs the tool
+  when a hook errors or exits with a code other than 0 or 2.
+- Hook log: patches (tool or shell-routed) are logged as `apply_patch <file names>`, and heredoc bodies
+  are no longer part of any logged command shape.
+- `provider_smoke.py` for Codex: probe (b) reads the secret with `cat` (Codex has no file-reading tool,
+  so the old wording could only produce a false FAIL), and new probes (f) `apply_patch` on `AGENTS.md`
+  and (g) a bare `bash` session must be blocked, logged and leave `AGENTS.md` unchanged.
+- `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
+
 ## 4.2.2 — 2026-10-11
 
 - `check_agent_config.py`: in an installed project it now scans only harness code for personal-home paths.

@@ -59,6 +59,20 @@ class DoctorTests(unittest.TestCase):
         code, _ = self.doctor('--strict')
         self.assertEqual(1, code)
 
+    def test_codex_hooks_without_trust_records_are_reported(self):
+        (self.repo / '.codex').mkdir()
+        shutil.copy(ROOT / '.codex/hooks.json', self.repo / '.codex/hooks.json')
+        hooks = (self.repo / '.codex/hooks.json').resolve()
+        base = f'[projects."{self.repo}"]\ntrust_level = "trusted"\n'
+        state = '\n[hooks.state."{}:pre_tool_use:{}:0"]\ntrusted_hash = "sha256:x"\n'
+        self.put('.codex/config.toml', base + state.format(hooks, 0))  # upgraded from 4.2: only the shell hook trusted
+        _, findings = self.doctor()
+        codex = self.levels(findings, 'codex')
+        self.assertTrue(any(l == 'WARN' and 'apply_patch' in m and 'Bash' not in m for l, m in codex), codex)
+        self.put('.codex/config.toml', base + state.format(hooks, 0) + state.format(hooks, 1))
+        _, findings = self.doctor()
+        self.assertFalse(any(l == 'WARN' for l, _ in self.levels(findings, 'codex')))
+
     def test_trusted_project_sandbox_override_downgrades_codex_risk(self):
         self.put('.codex/config.toml', f'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n\n[projects."{self.repo}"]\ntrust_level = "trusted"\n')
         (self.repo / '.codex').mkdir()

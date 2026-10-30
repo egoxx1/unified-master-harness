@@ -18,13 +18,14 @@ from __future__ import annotations
 
 import fnmatch
 import os
+import posixpath
 import re
 import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-POLICY_VERSION = '4.2.0'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
+POLICY_VERSION = '4.3.0'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
 
 SAFE_ENV_NAMES = {'.env.example', '.env.sample', '.env.template', '.env.defaults'}
 SENSITIVE_BASENAMES = {
@@ -80,6 +81,24 @@ HARNESS_PROTECTED = re.compile(
     r'(?:^|/)(?:AGENTS\.md|CLAUDE\.md|agent-core/hooks/|agent-core/scripts/|agent-core/evals/|agent-core/growth/policy\.json'
     r'|\.codex/|\.agents/|\.claude/settings[^/]*\.json|\.claude/agents/|\.claude/commands/)')
 FILE_WRITERS = {'tee', 'truncate', 'rm', 'unlink', 'mv', 'cp', 'install', 'ln', 'dd', 'chmod', 'chown'}
+# File headers of a Codex apply_patch body ("*** Update File: path", "*** Move to: path", ...).
+PATCH_FILE_HEADER = re.compile(r'^\s*\*\*\*\s*(?:(?:Add|Update|Delete)\s+File|Move\s+to)\s*:\s*(.+?)\s*$', re.M)
+# Codex runs these itself when a shell command invokes them (also as `cd dir && apply_patch <<'EOF'`).
+APPLY_PATCH_CALL = re.compile(r'(?:^|[\s;&|(\'"])(?:apply_patch|applypatch)(?=$|[\s<\'"])', re.M)
+APPLY_PATCH_CD = re.compile(r'\bcd\s+("[^"]+"|\'[^\']+\'|[^\s;&|]+)\s*&&\s*(?:apply_patch|applypatch)\b')
+# Harness enforcement files relative to the repository root (used when the root is known).
+HARNESS_ROOTED = re.compile(
+    r'(?:AGENTS\.md|CLAUDE\.md|agent-core/hooks/|agent-core/scripts/|agent-core/evals/|agent-core/growth/policy\.json'
+    r'|\.codex/|\.agents/|\.claude/settings[^/]*\.json|\.claude/agents/|\.claude/commands/)', re.I)
+HEREDOC = re.compile(r'<<-?\s*[\'"]?([A-Za-z_][\w-]*)[\'"]?')
+# Programs that read further commands from stdin when started without a command or script.
+REPLS = {'node', 'nodejs'}
+PYTHON = re.compile(r'python(?:3(?:\.\d+)?)?')
+RUNNERS = {'uv', 'poetry', 'pipenv', 'pdm', 'hatch'}  # `uv run python` starts the same REPL
+SESSION_VALUE_FLAGS = {'bash': {'-o', '+o', '-O', '+O'}, 'zsh': {'-o', '+o'}, 'sh': {'-o', '+o'},
+                       'python': {'-W', '-X', '-Q'}}
+INTERACTIVE_MODULES = {'code', 'pdb', 'IPython', 'idlelib', 'asyncio'}
+NODE_RUN_FLAGS = {'--test', '--watch', '--run', '--check', '--eval', '--print', '-c'}
 SEVERITY = {'allow': 0, 'ask': 1, 'deny': 2}
 MAX_DEPTH = 3
 
@@ -440,16 +459,192 @@ def _first_value(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
     return ''
 
 
+def patch_targets(patch: str) -> list[str]:
+    """Paths an apply_patch body adds, updates, deletes or moves to."""
+    return [m.strip().strip("\"'") for m in PATCH_FILE_HEADER.findall(patch or '')]
+
+
+def strip_heredoc_bodies(command: str) -> str:
+    """Drop heredoc body lines (data, not commands) and keep the lines that start and end them."""
+    kept: list[str] = []
+    pending: list[str] = []
+    for line in (command or '').splitlines():
+        if pending:
+            if line.strip() == pending[0]:
+                pending.pop(0)
+                kept.append(line)
+            continue
+        kept.append(line)
+        pending.extend(HEREDOC.findall(line))
+    return '\n'.join(kept)
+
+
+def _patch_target_protected(target: str, base: str, root: str) -> bool:
+    raw = target.replace('\\', '/')
+    if root:
+        full = os.path.normpath(os.path.join(root, base, raw))  # an absolute target ignores root and base
+        rel = os.path.relpath(full, root).replace('\\', '/')
+        if rel == '..' or rel.startswith('../'):
+            return False  # outside this repository: not this harness's files
+        return bool(HARNESS_ROOTED.match(rel))
+    return bool(HARNESS_PROTECTED.search(posixpath.normpath(posixpath.join(base, raw)) if base else posixpath.normpath(raw)))
+
+
+def _classify_patch(patch: str, base: str = '', root: str = '', require_headers: bool = True) -> Verdict:
+    """Harness verdict for an apply_patch body; base is the patch's directory relative to root."""
+    if not patch.strip():
+        return ALLOW
+    targets = patch_targets(patch)
+    if not targets:
+        if require_headers:
+            return _harness('Patch has no recognizable file headers, so its targets cannot be checked.')
+        return ALLOW
+    for target in targets:
+        if _patch_target_protected(target, base, root):
+            return _harness(f'Patch edits harness enforcement file {target}, which needs explicit user approval.')
+    return ALLOW
+
+
+def shell_patch(command: str) -> tuple[str, str] | None:
+    """(patch text, cd directory) when a shell command runs apply_patch, which Codex applies itself."""
+    if not command or not APPLY_PATCH_CALL.search(command):
+        return None
+    cd = APPLY_PATCH_CD.search(command)
+    return command, (cd.group(1).strip("\"'") if cd else '')
+
+
+def _session_segments(command: str) -> list[tuple[list[str], bool]]:
+    """(tokens, stdin_given) per simple command, respecting quotes; heredoc bodies are skipped."""
+    lexer = shlex.shlex(strip_heredoc_bodies(command), posix=True, punctuation_chars=';&|<>()\n')
+    lexer.whitespace = ' \t\r'
+    lexer.whitespace_split = True
+    tokens = list(lexer)
+    segments: list[tuple[list[str], bool]] = []
+    current: list[str] = []
+    stdin_given = skip_next = False
+    for token in tokens:
+        if skip_next:
+            skip_next = False
+            continue
+        if token and set(token) <= set(';&|<>()\n'):
+            if '<' in token or '>' in token:  # a redirection, not a separator
+                stdin_given = stdin_given or '<' in token
+                if current and current[-1].isdigit():
+                    current.pop()  # file descriptor of 2>&1
+                skip_next = True
+                continue
+            if current:
+                segments.append((current, stdin_given))
+            current, stdin_given = [], token in ('|', '|&')
+            continue
+        current.append(token)
+    if current:
+        segments.append((current, stdin_given))
+    return segments
+
+
+def interactive_session(command: str, depth: int = 0) -> str:
+    """Name of a shell or REPL the command starts with no command of its own, if any.
+
+    Such a session takes its real commands later from stdin. On Codex those writes
+    (write_stdin) never reach a PreToolUse hook, so the session itself is the last point
+    a guard can see. A session whose stdin is given inside the command (piped into it,
+    heredoc or redirect) is visible to the guard already and is not interactive.
+    """
+    if depth > MAX_DEPTH:
+        return ''
+    try:
+        segments = _session_segments(command or '')
+    except ValueError:
+        return ''
+    for tokens, stdin_given in segments:
+        tokens = [t for t in tokens if t not in ('{', '}')]
+        tokens = _unwrap(tokens)
+        if tokens and tokens[0] == 'exec':
+            tokens = _unwrap(tokens[1:])
+        while len(tokens) > 1 and Path(tokens[0]).name in RUNNERS and tokens[1] == 'run':
+            rest = tokens[2:]
+            while rest and rest[0].startswith('-'):
+                rest = rest[1:]
+            tokens = _unwrap(rest)
+        if not tokens or stdin_given:
+            continue
+        program, args = Path(tokens[0]).name, tokens[1:]
+        if any(a in {'--version', '--help'} for a in args):
+            continue
+        value_flags = SESSION_VALUE_FLAGS.get('python' if PYTHON.fullmatch(program) else program, set())
+        flags, positional, skip = [], [], False
+        for arg in args:
+            if skip:
+                skip = False
+            elif arg.startswith(('-', '+')) and arg not in ('-', '+'):
+                flags.append(arg)
+                skip = arg in value_flags
+            elif arg != '-':  # '-' means "script from stdin", which is not a script
+                positional.append(arg)
+        short = ''.join(f[1:] for f in flags if not f.startswith('--'))
+        if program in SHELLS:
+            if 'c' in short:
+                inner = args[next(i for i, a in enumerate(args) if a.startswith('-') and not a.startswith('--') and 'c' in a[1:]) + 1:]
+                found = interactive_session(inner[0], depth + 1) if inner else ''
+                if found:
+                    return found
+            elif not positional or 's' in short or 'i' in short:
+                return program
+        elif PYTHON.fullmatch(program) or program == 'ipython':
+            if 'V' in short:
+                continue
+            if 'i' in short:
+                return program
+            if 'm' in short:
+                module = args[args.index(next(f for f in flags if 'm' in f[1:])) + 1:][:1]
+                if module and module[0] in INTERACTIVE_MODULES:
+                    return f'{program} -m {module[0]}'
+                continue
+            if 'c' not in short and not positional:
+                return program
+        elif program in REPLS:
+            if 'v' in short:
+                continue
+            runs = any(f.split('=', 1)[0] in NODE_RUN_FLAGS for f in flags) or any(f in {'-e', '-p'} for f in flags)
+            if '-i' in flags or '--interactive' in flags or (not runs and not positional):
+                return program
+    return ''
+
+
 def _glob_targets_sensitive(pattern: str) -> bool:
     probes = ('.env', '.env.local', '.env.production', 'id_rsa', 'server.pem', 'private.key', '.netrc', '.envrc')
     return any(fnmatch.fnmatch(probe, pattern) and sensitive_path(probe) for probe in probes) or sensitive_path(pattern)
 
 
-def classify_generic(tool_name: str, tool_input: dict[str, Any]) -> Verdict:
+def _relative_base(cwd: str | None, root: str | None) -> str:
+    if not cwd or not root:
+        return ''
+    try:
+        rel = os.path.relpath(os.path.realpath(cwd), os.path.realpath(root)).replace('\\', '/')
+    except ValueError:
+        return ''
+    return '' if rel == '.' or rel.startswith('..') else rel
+
+
+def classify_generic(tool_name: str, tool_input: dict[str, Any], cwd: str | None = None, root: str | None = None) -> Verdict:
+    """cwd and root (the repository the hooks belong to) anchor patch paths when the provider gives them."""
     tool_input = tool_input or {}
+    if isinstance(tool_input, str):
+        tool_input = {'command': tool_input}
+    if not isinstance(tool_input, dict):
+        return _sensitive(f'{tool_name} input has an unexpected shape and cannot be checked.')
+    base = _relative_base(cwd, root)
+    if tool_name == 'apply_patch':
+        return _classify_patch(_first_value(tool_input, ('command', 'patch', 'input')), base, root or '')
     if tool_name in {'Bash', 'PowerShell', 'run_command', 'execute_command', 'exec_command', 'shell', 'local_shell'}:
         command = _first_value(tool_input, ('command', 'CommandLine', 'cmd', 'script'))
-        return classify_command(command)
+        verdict = classify_command(command)
+        routed = shell_patch(command)
+        if routed and verdict.action != 'deny':
+            patch, cd = routed
+            verdict = _worst(verdict, _classify_patch(patch, posixpath.join(base, cd) if cd else base, root or '', require_headers=False))
+        return verdict
     if tool_name in {'Read', 'view_file', 'read_file'}:
         path = _first_value(tool_input, ('file_path', 'path', 'AbsolutePath', 'TargetFile'))
         if sensitive_path(path):

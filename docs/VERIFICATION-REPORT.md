@@ -1,4 +1,4 @@
-# Verification report — V4.2.1
+# Verification report — V4.2.1 (Codex notes updated for 4.3.0)
 
 What has actually been measured, on which versions, and what has not. Every number here comes from
 a real run of the scripts in `agent-core/scripts/`; rerun them to reproduce. Dates are 2026-10-10/11.
@@ -95,6 +95,12 @@ planning or starting such work and that "don't ask me" is not approval: 6 of 6 r
   or paths built in variables (`rm -rf "$DIR"`). The Claude sandbox and Codex workspace sandbox cover
   part of this; Antigravity has no sandbox layer here.
 - Antigravity's `grep_search` tool is not matched (its argument names are not documented).
+- Codex (4.3.0, checked against the Codex source, not yet on a real model): `apply_patch` edits of harness
+  files (tool and shell-routed), bare `bash`/`python3`/`node` sessions and hook failures were open paths
+  and are now denied. Still open: interactive programs not on the list fed through `write_stdin` (for
+  example `psql` without `-c`, `sqlite3 db`, `tmux`), unusual wrappers (`uv run --with x python`), MCP tools
+  (not matched), a missing `python3` for the shell hook group (kept unchanged so its trust survives
+  upgrades), and the hook's 5 s timeout, after which Codex runs the tool.
 - Code correctness is checked by tests and by the agent's own verification and review skills. Those
   are model judgements and can miss things; the Stop warning only ensures a check was run.
 - Only macOS and Linux are supported. Windows is untested (use WSL).
