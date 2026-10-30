@@ -88,9 +88,10 @@ Trust the folder once in Codex (`/hooks`) and Antigravity, then read **[START-HE
 
 ## Measured results
 
-Every number comes from a real run of the scripts in this repository (v4.2.1, October 2026).
+Every number comes from a real run of the scripts in this repository (October 2026). Cells marked ³, ⁴ or ⁵
+are v4.3.0 on the CLI version that footnote names; the rest are v4.2.1 on Claude Code 2.1.296 and Antigravity 1.3.3.
 
-| Check | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161–0.165 |
+| Check | Claude Code 2.1.296–2.1.314 | Antigravity 1.3.3–1.4.11 | Codex CLI 0.161–0.165 |
 |---|:---:|:---:|:---:|
 | Safety smoke on the real CLI | **6/6** | **6/6** | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
@@ -108,8 +109,9 @@ the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes. 
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
 tasks the agent ran the test suite **9/9** times (0/9 without the harness), and every bug fix left a
 regression test (**6/6**, versus 0/6). About 4,900 input tokens per turn are fixed context, roughly half
-of it Claude Code's own sandbox instructions. If you prefer fewer tokens, the benchmark page shows which
-two switches bring it back to about +20%.
+of it Claude Code's own sandbox instructions. The benchmark page lists two switches that brought those small
+tasks back to about +20% on 4.2.1; on the larger 4.3.0 tasks, turning off the sandbox saved 9% of the harness
+cost and removing the regression-test rule was within noise.
 
 **Rerun on 4.3.0 with Claude Opus 5.5 (2026-10-30), eight tasks including four multi-file ones:** the
 harness cost **+11% to +27%** per task and was never more correct (30/30 both arms). The newer model ran

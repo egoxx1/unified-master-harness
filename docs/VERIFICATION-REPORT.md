@@ -1,13 +1,14 @@
-# Verification report — V4.2.1 (Codex notes updated for 4.3.0)
+# Verification report — V4.2.1 and V4.3.0
 
 What has actually been measured, on which versions, and what has not. Every number here comes from
-a real run of the scripts in `agent-core/scripts/`; rerun them to reproduce. Dates are 2026-10-10/11.
+a real run of the scripts in `agent-core/scripts/`; rerun them to reproduce. Dates are 2026-10-10/11 (v4.2.1) and
+2026-10-30 (v4.3.0); each 4.3.0 result names its CLI version, everything else is v4.2.1.
 
 Environments: macOS 27 on Apple silicon (Python 3.14) and Linux (Python 3.12; unit tests also on 3.10).
 
 ## Summary
 
-| Area | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161–0.165 |
+| Area | Claude Code 2.1.296–2.1.314 | Antigravity 1.3.3–1.4.11 | Codex CLI 0.161–0.165 |
 |---|---|---|---|
 | Safety smoke, shared probes (`provider_smoke.py`) | 6/6 PASS | 6/6 PASS | 8/8 PASS (0.165.0, v4.3.0; incl. `apply_patch` and bare-`bash` probes) |
 | Claude-only layer: sandbox, permission rules, lifecycle hooks | 8/8 PASS | — | — |
