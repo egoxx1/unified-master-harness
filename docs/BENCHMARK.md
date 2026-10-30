@@ -1,7 +1,13 @@
 # Efficiency benchmark — what the harness costs and what it buys
 
-Measured 2026-10-11 with `bench/run_bench.py` on Claude Code 2.1.296 (default model, `claude-sonnet-5-5`),
-macOS. Raw data: `docs/benchmarks/2026-10-11-*.json`. Rerun it yourself: `python3 bench/run_bench.py --reps 3`.
+**Latest (4.3.0, 2026-10-30, Claude Code 2.1.314, `claude-opus-5-5`):** on all 8 tasks the harness and
+bare runs were equally correct; the harness cost +11% to +27% per task and won none. On the larger tasks
+about 60% of its extra cost is the Claude Code sandbox; the regression-test rule's share was inside the noise.
+Details in the 4.3.0 sections below. Differences under 5% are marked as noise.
+
+The sections up to "If you want fewer tokens" were measured 2026-10-11 with `bench/run_bench.py` on Claude
+Code 2.1.296 (default model then, `claude-sonnet-5-5`), macOS. Raw data: `docs/benchmarks/*.json`. Rerun it
+yourself: `python3 bench/run_bench.py --reps 3`.
 
 ## Setup
 
@@ -14,7 +20,7 @@ function. Each task runs 3 times in a fresh repository **without** the harness a
 - correctness, by hidden tests the agent never sees;
 - whether the agent ran the test suite, or at least checked its change some other way.
 
-## Results for the current version (medians of 3 runs)
+## Results for 4.2.1 (2026-10-11, medians of 3 runs)
 
 | Task | Cost without → with | Input tokens without → with | Lines changed (incl. tests) | Correct |
 |---|---|---|---|---|
@@ -74,6 +80,26 @@ deliberate exception: it doubles the cost increase in exchange for a tested fix 
 
 V4 keeps both on.
 
+### What each switch costs on the larger tasks (measured 2026-10-30)
+
+Both switches, one at a time, on `cart` and `listing`, 3 runs per task and arm, all four arms in the same
+run (Claude Code 2.1.314, `claude-opus-5-5`; raw data `docs/benchmarks/2026-10-30-switches-cart-listing.json`):
+
+| Arm (6 runs each) | Cost | vs bare | vs full harness | Correct | Left a test file |
+|---|---|---|---|---|---|
+| bare | $1.86 | — | | 6/6 | 6/6 |
+| harness | $2.20 | +18% | — | 6/6 | 6/6 |
+| harness, sandbox off | $2.00 | +8% | **−9%** (cart −9%, listing −9%) | 6/6 | 6/6 |
+| harness, regression-test rule removed | $2.13 | +15% | −3%, noise (cart −8%, listing +2%) | 6/6 | 6/6 |
+
+Of the $0.34 the harness added over bare here, turning the sandbox off removed $0.20 (about 60%), the same
+in both tasks. Removing the regression-test rule removed $0.07, inside the noise: on these tasks the agent
+left a test file in every run in every arm, bare included, so the rule had nothing to add. The remaining
+~$0.07-0.14 (rest of `AGENTS.md`, skill listing, hooks) was not split further; the switches were measured
+one at a time, not together, so they need not add up. With the sandbox off one `cart` run did not run the
+test suite (2/3); every other arm ran it 3/3. On the four small tasks (2026-10-11, Sonnet) the rule was the
+larger cost; on these larger tasks it is the sandbox.
+
 ## Not measured yet
 
 Codex and Antigravity (the benchmark runs Claude Code only). Contributions of tasks to `bench/` are welcome.
@@ -87,8 +113,8 @@ Two multi-file tasks were added because the four above are too small for process
 - `listing`: three symptoms from a bug report, caused by bugs in three files (`pagination.py`, `text.py`
   twice), with edge cases (`truncate` for every limit 0-7) the report only hints at.
 
-Both hidden tests fail on the untouched project and pass on a reference solution (checked by a unit test
-and by hand). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
+Both hidden tests fail on the untouched project (checked by a unit test) and pass on a reference solution
+(checked by hand; no reference is stored for these two). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
 
 Measured 2026-10-30 (Claude Code 2.1.314, default model `claude-opus-5-5`, 3 runs per arm): both arms 6/6
 correct, both ran the tests every time; the harness cost +23% ($1.85 → $2.28). The harness did not buy a
@@ -108,19 +134,20 @@ Same day, same CLI and model, 3 runs per task and arm (raw data:
 
 | Task | Harness cost before → after | Overhead vs bare before → after | `dev-debug` loaded | profile opened | Correct (harness) |
 |---|---|---|---|---|---|
-| typo | $0.73 → $0.74 | +17% → +20% | 0 → 0 | 0 → 0 | 3/3, 3/3 |
-| bugfix | $0.96 → $0.91 | +38% → +23% | 3 → 0 | 0 → 0 | 3/3, 3/3 |
-| slugify | $0.84 → $0.85 | +17% → +18% | 0 → 0 | 2 → 0 | 3/3, 3/3 |
-| discount | $0.88 → $0.89 | +15% → +11% | 0 → 0 | 3 → 1 | 3/3, 3/3 |
-| cart | $1.20 → $1.20 | +25% → +27% | 0 → 0 | 1 → 2 | 3/3, 3/3 |
-| listing | $1.08 → $1.01 | +21% → +14% | 3 → 0 | 2 → 0 | 3/3, 3/3 |
-| **All 18 runs per side** | **$5.69 → $5.60 (−2%)** | **+22% → +19%** | **6 → 0** | **8 → 3** | **18/18, 18/18** |
+| typo | $0.73 → $0.74 (noise) | +17% → +20% | 0 → 0 | 0 → 0 | 3/3, 3/3 |
+| bugfix | $0.96 → $0.91 (−5%) | +38% → +23% | 3 → 0 | 0 → 0 | 3/3, 3/3 |
+| slugify | $0.84 → $0.85 (noise) | +17% → +18% | 0 → 0 | 2 → 0 | 3/3, 3/3 |
+| discount | $0.88 → $0.89 (noise) | +15% → +11% | 0 → 0 | 3 → 1 | 3/3, 3/3 |
+| cart | $1.20 → $1.20 (noise) | +25% → +27% | 0 → 0 | 1 → 2 | 3/3, 3/3 |
+| listing | $1.08 → $1.01 (−6%) | +21% → +14% | 3 → 0 | 2 → 0 | 3/3, 3/3 |
+| **All 18 runs per side** | **$5.69 → $5.60 (−2%, noise)** | **+22% → +19%** | **6 → 0** | **8 → 3** | **18/18, 18/18** |
 
 Costs are sums of 3 runs. The bare arm, which did not change, moved by −3% to +7% per task between the two
 runs, so per-task differences under about 5% are noise. What held: `dev-debug` was never loaded for these
 obvious bugs, profile reads fell from 8 to 3, correctness stayed 18/18, the tests ran in 15/15 non-typo
-runs and every bug fix still left a regression test (9/9). What did not: the saving is small. The two
-tasks that lost the `dev-debug` step got cheaper by 5-6%; the rest of the overhead is the per-turn
+runs and every bug fix still left a regression test (9/9). What did not: the cost. Overall it is unchanged
+within noise. The two tasks that lost the `dev-debug` step came out 5% and 6% cheaper, barely past the
+noise line while the unchanged bare arm drifted by up to 7%, so that is not established either. The rest of the overhead is the per-turn
 context (`AGENTS.md`, sandbox instructions) and the testing the harness asks for, which these wording
 changes do not touch. A profile read costs almost nothing on its own because the agent bundles it into a
 shell call it makes anyway.
@@ -129,4 +156,34 @@ Routing evals with the same change (`run_evals.py --repeat 3`, `small-css` now a
 Claude Code 12/12 before and after; Codex 11/12 before (`small-css` declared `dev-debug` in 3 of 3 runs,
 rescored from the earlier 4.3.0 run with the harness unchanged) and 12/12 after. `bug-api-500`, a bug whose
 cause is unknown, still routes to `dev-debug` in 3 of 3 runs on both.
+
+## Tasks meant to favor the harness (added in 4.3.0)
+
+Two tasks in a second project (`bench/project2`, a small store working in integer cents) target what the
+harness asks for and a lone agent might skip. Stored reference solutions (`bench/reference/<task>/`) pass the
+hidden and the visible tests and the untouched project fails them (unit test); partial fixes were checked by
+hand to fail.
+
+- `percent`: change `apply_discount` from a fraction (0.1) to a percentage (10). Its callers take their
+  rates from `store/config.py` (0.05, 0.1) and `data/promotions.json` (0.15, 0.3). Those stay inside 0-100,
+  so after a change to `pricing.py` alone every member and promotion discount silently becomes a fraction
+  of a percent, and no existing test notices.
+- `refund`: "a $19.99 mug was refunded $19.98". The cause is four files away: `refunds.py` →
+  `orders.py` → `catalog.py` → `money.to_cents`, which truncates `float("19.99") * 100`. The same bug hits
+  other catalog prices, negative credits and typed-in refunds, which the report does not mention.
+
+Measured 2026-10-30, 3 runs per arm (raw data: `docs/benchmarks/2026-10-30-new-tasks-percent-refund.json`):
+
+| Task | Correct, bare vs harness | Cost bare → harness | Turns (median) |
+|---|---|---|---|
+| percent | 3/3, 3/3 | $0.96 → $1.21 (+26%) | 7 → 14 |
+| refund | 3/3, 3/3 (first scoring: 3/3, 2/3) | $0.98 → $1.08 (+11%) | 10 → 12 |
+
+**The harness did not win either task.** The bare agent found the config and JSON callers in 3 of 3
+`percent` runs and fixed `to_cents` at the source in 3 of 3 `refund` runs; the harness reached the same
+result for more money. The first scoring had the harness at 2/3 on `refund`: that run fixed `to_cents` with
+`Decimal(amount)`, which is exact for every string the docstring describes, but the hidden test also
+checked a float argument (`to_cents(19.99)`) that the docstring never promised. That assertion was removed
+as a test error, and the run, replayed from its transcript, passes the corrected test. Both scorings are in
+the raw data. On current models, a task the harness wins needs to be harder than these; that remains open.
 

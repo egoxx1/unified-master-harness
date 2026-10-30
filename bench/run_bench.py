@@ -14,6 +14,11 @@ Claude Code runs the task prompt headless in each (same CLI flags, same allowed 
   python3 bench/run_bench.py --reps 3            # 6 tasks x 2 arms x 3 = 36 Claude runs
   python3 bench/run_bench.py --tasks cart,listing --reps 3   # the two multi-file tasks only
   python3 bench/run_bench.py --tasks typo --reps 1 --model sonnet
+  python3 bench/run_bench.py --tasks cart,listing --arms bare,harness,harness-nosandbox,harness-norule
+
+Variant arms install the harness and then switch one thing off, to price it separately:
+  harness-nosandbox  .claude/settings.json sandbox.enabled = false
+  harness-norule     the regression-test rule removed from AGENTS.md (and its .agents copy)
 
 Results: bench/results/<timestamp>.json and a printed summary (medians per task and arm).
 This spends real Claude usage. It needs the `claude` CLI logged in.
@@ -33,6 +38,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / 'bench'
 ALLOWED = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash(python3:*)', 'Bash(git diff:*)', 'Bash(git status:*)', 'Bash(ls:*)']
+ARMS = ('bare', 'harness', 'harness-nosandbox', 'harness-norule')
+REGRESSION_RULE = '- Bug fixes in a repository with tests: add or update a test that fails before the fix and passes after it.\n'
 HARNESS_PATHS = (':!AGENTS.md', ':!CLAUDE.md', ':!START-HERE*', ':!PROJECT.md', ':!.agents', ':!.claude', ':!.codex',
                  ':!.github', ':!agent-core', ':!docs/agent', ':!templates', ':!.gitignore', ':!.agent-state')
 
@@ -41,15 +48,27 @@ def git(cwd: Path, *args: str) -> str:
     return subprocess.run(['git', *args], cwd=cwd, capture_output=True, text=True).stdout
 
 
-def make_repo(arm: str) -> Path:
+def make_repo(arm: str, project: str = 'project') -> Path:
     repo = Path(tempfile.mkdtemp(prefix=f'v4-bench-{arm}-')).resolve()
-    shutil.copytree(BENCH / 'project', repo, dirs_exist_ok=True)
+    shutil.copytree(BENCH / project, repo, dirs_exist_ok=True)
     git(repo, 'init', '-q')
-    if arm == 'harness':
+    if arm.startswith('harness'):
         proc = subprocess.run([sys.executable, '-B', str(ROOT / 'install/apply.py'), '--target', str(repo), '--apply'],
                               capture_output=True, text=True)
         if proc.returncode != 0:
             raise SystemExit('harness install failed:\n' + proc.stdout + proc.stderr)
+    if arm == 'harness-nosandbox':
+        settings = repo / '.claude/settings.json'
+        data = json.loads(settings.read_text())
+        data['sandbox']['enabled'] = False
+        settings.write_text(json.dumps(data, indent=2) + '\n')
+    if arm == 'harness-norule':
+        for rel in ('AGENTS.md', '.agents/AGENTS.md'):
+            policy = repo / rel
+            text = policy.read_text()
+            if REGRESSION_RULE not in text:
+                raise SystemExit(f'regression-test rule not found in {rel}')
+            policy.write_text(text.replace(REGRESSION_RULE, ''))
     git(repo, 'add', '-A')
     git(repo, '-c', 'user.name=bench', '-c', 'user.email=bench@example.invalid', 'commit', '-qm', 'baseline')
     return repo
@@ -80,7 +99,8 @@ def tool_calls(events: list) -> list[str]:
     """Tool calls in order, e.g. 'Read shop/text.py' or 'Bash python3 -m unittest ...'."""
     calls = []
     for e in events:
-        for block in (e.get('message') or {}).get('content') or []:
+        message = e.get('message')
+        for block in (message.get('content') or [] if isinstance(message, dict) else []):
             if isinstance(block, dict) and block.get('type') == 'tool_use':
                 args = block.get('input') or {}
                 detail = args.get('command') or args.get('file_path') or args.get('pattern') or args.get('skill') or ''
@@ -127,15 +147,15 @@ def measure(repo: Path, task: dict, result: dict, events: list) -> dict:
 
 
 def summarize(rows: list) -> list[str]:
-    lines = ['task      arm      n  correct  tests   checked  changed  out_tok  in_tok(all)  cost$   turns  sec   (medians)']
-    keys = sorted({(r['task'], r['arm']) for r in rows}, key=lambda k: (k[0], k[1] != 'bare'))
+    lines = ['task      arm               n  correct  tests   checked  changed  out_tok  in_tok(all)  cost$   turns  sec   (medians)']
+    keys = sorted({(r['task'], r['arm']) for r in rows}, key=lambda k: (k[0], ARMS.index(k[1])))
     for task, arm in keys:
         rs = [r for r in rows if r['task'] == task and r['arm'] == arm and r['ok']]
         if not rs:
-            lines.append(f'{task:9} {arm:8} 0  (no successful runs)')
+            lines.append(f'{task:9} {arm:17} 0  (no successful runs)')
             continue
         med = lambda k: statistics.median(r[k] or 0 for r in rs)  # noqa: E731
-        lines.append(f"{task:9} {arm:8} {len(rs)}  {sum(r['correct'] for r in rs)}/{len(rs):<6} {sum(r['tests_run'] for r in rs)}/{len(rs):<5} {sum(r['checked'] for r in rs)}/{len(rs):<6} "
+        lines.append(f"{task:9} {arm:17} {len(rs)}  {sum(r['correct'] for r in rs)}/{len(rs):<6} {sum(r['tests_run'] for r in rs)}/{len(rs):<5} {sum(r['checked'] for r in rs)}/{len(rs):<6} "
                      f"{med('changed_lines'):<8g} {med('output_tokens'):<8g} {med('input_tokens'):<12g} {med('cost_usd'):<7.3f} "
                      f"{med('turns'):<6g} {med('seconds'):g}")
     return lines
@@ -145,9 +165,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description='With/without-harness efficiency benchmark on Claude Code.')
     ap.add_argument('--tasks', default='', help='comma-separated task ids (default: all)')
     ap.add_argument('--reps', type=int, default=3)
+    ap.add_argument('--arms', default='bare,harness', help=f"comma-separated arms from {', '.join(ARMS)}")
     ap.add_argument('--model', default='', help='claude --model value (default: the CLI default)')
     ap.add_argument('--timeout', type=int, default=420)
     args = ap.parse_args()
+    arms = [a for a in args.arms.split(',') if a]
+    if not arms or any(a not in ARMS for a in arms):
+        ap.error(f"--arms takes a comma-separated subset of {', '.join(ARMS)}")
     sys.stdout.reconfigure(line_buffering=True)
 
     tasks = json.loads((BENCH / 'tasks.json').read_text())
@@ -155,15 +179,15 @@ def main() -> int:
     tasks = [t for t in tasks if not wanted or t['id'] in wanted]
     version = subprocess.run(['claude', '--version'], capture_output=True, text=True).stdout.strip()
     jobs = [(rep, task, arm) for rep in range(args.reps) for task in tasks
-            for arm in (('bare', 'harness') if rep % 2 == 0 else ('harness', 'bare'))]  # alternate order
+            for arm in (arms if rep % 2 == 0 else arms[::-1])]  # alternate order
     rows = []
     for rep, task, arm in jobs:
-        repo = make_repo(arm)
+        repo = make_repo(arm, task.get('project', 'project'))
         result, events = run_claude(repo, task['prompt'], args.model, args.timeout)
         row = {'task': task['id'], 'arm': arm, 'rep': rep, **measure(repo, task, result, events)}
         rows.append(row)
         shutil.rmtree(repo, ignore_errors=True)
-        print(f"{task['id']:9} {arm:8} rep{rep} ok={row['ok']} correct={row['correct']} tests={row['tests_run']} checked={row['checked']} "
+        print(f"{task['id']:9} {arm:17} rep{rep} ok={row['ok']} correct={row['correct']} tests={row['tests_run']} checked={row['checked']} "
               f"changed={row['changed_lines']} out={row['output_tokens']} in={row['input_tokens']} "
               f"cost={row['cost_usd']} turns={row['turns']} {row['seconds']}s | {row['error'] or ' ; '.join(row['tool_calls'])[:300]}")
         if len(rows) >= 3 and not any(r['ok'] for r in rows[-3:]):
@@ -171,7 +195,7 @@ def main() -> int:
             break
     out = BENCH / 'results' / f"{time.strftime('%Y%m%d-%H%M%S')}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps({'claude_version': version, 'model': args.model or 'default', 'reps': args.reps,
+    out.write_text(json.dumps({'claude_version': version, 'model': args.model or 'default', 'reps': args.reps, 'arms': arms,
                                'rows': rows}, indent=2) + '\n')
     print('\n'.join(summarize(rows)))
     print(out)

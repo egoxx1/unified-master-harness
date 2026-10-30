@@ -45,9 +45,22 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
 - Less fixed process on small and medium tasks: `dev-debug` (in `AGENTS.md` §5 and its description) is
   only for bugs whose cause is not yet known, and not for spacing, size or color fixes; `AGENTS.md` §6
   says to open `agent-core/project/profile.md` only when a needed command is not in the files already read.
-  Benchmark, 18 runs per side: `dev-debug` loads 6 → 0, profile reads 8 → 3, correctness 18/18 kept, cost
-  −2% ($5.69 → $5.60; overhead vs bare +22% → +19%). Routing evals ×3: Claude Code 12/12 → 12/12, Codex
+  Benchmark, 18 runs per side: `dev-debug` loads 6 → 0, profile reads 8 → 3, correctness 18/18 kept; cost
+  unchanged within noise ($5.69 → $5.60, −2%; overhead vs bare +22% → +19%). Routing evals ×3: Claude Code 12/12 → 12/12, Codex
   11/12 → 12/12. The `small-css` eval case now also forbids `dev-debug`.
+- Benchmark: `run_bench.py --arms` adds `harness-nosandbox` and `harness-norule` to price the two cost
+  switches separately. On `cart`/`listing` (6 runs per arm): sandbox off −9% of the harness cost (about 60%
+  of its extra cost over bare), regression-test rule removed −3% (noise); correctness 6/6 in every arm.
+- Benchmark: two tasks meant to favor the harness in `bench/project2`, `percent` (callers with rates in a
+  config module and a JSON file) and `refund` (symptom four files from its cause), with stored reference
+  solutions; a unit test checks they pass the hidden and visible tests. Result: the harness did not win
+  (3/3 vs 3/3 on both, +26% and +11% cost). A hidden-test assertion outside the documented contract
+  (float input to `to_cents`) first scored one harness run as failing; it was removed and the run rescored.
+- `run_bench.py` no longer crashes on a stream event whose `message` is a string.
+- Rerun on Claude Opus 5.5: without the harness the agent also ran the tests (27/27 non-typo runs); the
+  harness still left a regression test after every bug fix (15/15 vs 9/15).
+- `doctor.py`: the advice for an older user-level hook copy no longer says to overwrite every `*_pretool.py`
+  (a local copy can carry its own rules); back up, copy `policy.py`/`hook_log.py`/`scope.py`, diff the rest.
 - `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
 
 ## 4.2.2 — 2026-10-11

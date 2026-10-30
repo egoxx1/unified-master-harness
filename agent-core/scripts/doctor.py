@@ -130,7 +130,7 @@ def check_claude(home: Path, repo: Path) -> list[Finding]:
             else:
                 shown = '.'.join(map(str, theirs)) if theirs else 'pre-4.2 (no POLICY_VERSION)'
                 out.append(Finding('WARN', 'claude', f'A user-level PreToolUse hook runs an older harness copy ({other}/hooks, policy {shown}) in every project.',
-                                   'Both hooks run; the stricter answer wins. Copy agent-core/hooks/{policy,hook_log,scope,*_pretool}.py from this template into that folder.'))
+                                   'Both hooks run; the stricter answer wins. Back up that folder, copy agent-core/hooks/{policy,hook_log,scope}.py from this template into it, and diff each *_pretool.py before replacing it: a local copy may carry its own rules.'))
     if not out:
         out.append(Finding('OK', 'claude', 'No user-level Claude Code setting weakens the project hooks.'))
     return out

@@ -12,9 +12,9 @@ Environments: macOS 27 on Apple silicon (Python 3.14) and Linux (Python 3.12; un
 | Safety smoke, shared probes (`provider_smoke.py`) | 6/6 PASS | 6/6 PASS | 8/8 PASS (0.165.0, v4.3.0; incl. `apply_patch` and bare-`bash` probes) |
 | Claude-only layer: sandbox, permission rules, lifecycle hooks | 8/8 PASS | — | — |
 | Hook runtime without a model (`codex_hook_probe.py`) | — | — | PASS, negative control FAIL as expected |
-| Skill routing (`run_evals.py`, 12 cases) | 12/12 | 12/12 | 12/12, every case in 3 of 3 runs (0.165.0) |
-| Efficiency, 24 runs with vs without (`bench/run_bench.py`) | +42% cost, same correctness; ran tests 9/9 vs 0/9 | — | — |
-| Unit tests | 101 tests, 0 failures (Linux 3.10/3.12, macOS 3.14) | | |
+| Skill routing (`run_evals.py`, 12 cases) | 12/12; 12/12 in 3 of 3 runs on 2.1.314 (v4.3.0) | 12/12 | 12/12, every case in 3 of 3 runs (0.165.0, v4.3.0) |
+| Efficiency with vs without (`bench/run_bench.py`) | 4.2.1, 4 small tasks: +42% cost, same correctness, ran tests 9/9 vs 0/9. 4.3.0 on 2.1.314, 8 tasks: +11% to +27% per task, same correctness on every task, no task won | — | — |
+| Unit tests | 121 tests, 0 failures (macOS 3.14, v4.3.0); 101 on Linux 3.10/3.12 (v4.2.1) | | |
 
 ## Safety smoke (`provider_smoke.py`)
 
@@ -55,6 +55,18 @@ spacing") Codex declared `dev-debug` in 3 of 3 runs. `small-css` now forbids `de
 that run 11/12. After `AGENTS.md` §5 and the `dev-debug` description were narrowed to bugs with an unknown
 cause (see `BENCHMARK.md`): Codex 12/12 and Claude Code 12/12, each with every case in 3 of 3 runs (Claude
 Code was also 12/12 ×3 before the change). Antigravity has not been rerun with `--repeat`.
+
+## User-level hook copy on the maintainer's Mac (`doctor.py`, 2026-10-30)
+
+`doctor.py` found the user-level Claude Code and Codex hooks running a V4 copy at policy **4.2.0**
+(`~/agent-core/hooks`). It defers to projects with newer hooks, so 4.3.0 projects are guarded by their own
+hooks; folders without a harness get 4.2.0 rules (no `apply_patch` or bare-session checks). That copy's
+`claude_pretool.py` carries local rules (extra ask patterns, an unattended-mode notice) that the template
+does not have, so doctor's old advice to copy every `*_pretool.py` would have erased them; the advice now
+says to back up, copy `policy.py`, `hook_log.py` and `scope.py`, and diff each `*_pretool.py` first. A
+scratch copy with the 4.3.0 `policy.py`, `hook_log.py` and `codex_pretool.py` and the local
+`claude_pretool.py` was run on sample events: deny, the unattended-mode rewrite and the Codex bare-`bash`
+deny all worked. The real copy was not changed.
 
 ## Codex hook runtime without a model (`codex_hook_probe.py`)
 

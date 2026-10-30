@@ -199,6 +199,18 @@ class CodexHookProbeTests(unittest.TestCase):
 
 
 class BenchTaskTests(unittest.TestCase):
+    def run_hidden(self, task: dict, tmp: str, reference: bool) -> tuple[int, int]:
+        repo = Path(tmp) / 'p'
+        shutil.copytree(ROOT/'bench'/task.get('project', 'project'), repo)
+        if reference:
+            shutil.copytree(ROOT/'bench/reference'/task['id'], repo, dirs_exist_ok=True)
+        (repo/'tests_hidden').mkdir()
+        (repo/'tests_hidden/__init__.py').write_text('')
+        shutil.copy2(ROOT/'bench/hidden'/task['hidden'], repo/'tests_hidden'/task['hidden'])
+        run = lambda *a: subprocess.run([sys.executable, '-B', '-m', 'unittest', *a], cwd=repo,  # noqa: E731
+                                        capture_output=True, text=True, timeout=60).returncode
+        return run('tests_hidden.' + task['hidden'][:-3]), run('discover', '-s', 'tests')
+
     def test_every_hidden_test_fails_on_the_untouched_project(self):
         # A bench task is only a measurement if its acceptance test cannot pass before the agent works.
         import tempfile
@@ -206,14 +218,16 @@ class BenchTaskTests(unittest.TestCase):
         self.assertIn('large', {t['kind'] for t in tasks})
         for task in tasks:
             with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
-                repo = Path(tmp) / 'p'
-                shutil.copytree(ROOT/'bench/project', repo)
-                (repo/'tests_hidden').mkdir()
-                (repo/'tests_hidden/__init__.py').write_text('')
-                shutil.copy2(ROOT/'bench/hidden'/task['hidden'], repo/'tests_hidden'/task['hidden'])
-                proc = subprocess.run([sys.executable, '-B', '-m', 'unittest', 'tests_hidden.' + task['hidden'][:-3]],
-                                      cwd=repo, capture_output=True, text=True, timeout=60)
-                self.assertNotEqual(0, proc.returncode, task['id'])
+                self.assertNotEqual(0, self.run_hidden(task, tmp, reference=False)[0], task['id'])
+
+    def test_reference_solutions_pass_hidden_and_visible_tests(self):
+        # ...and only if it can pass: a stored reference solution passes both test sets.
+        import tempfile
+        tasks = [t for t in json.loads((ROOT/'bench/tasks.json').read_text()) if (ROOT/'bench/reference'/t['id']).is_dir()]
+        self.assertTrue({'percent', 'refund'} <= {t['id'] for t in tasks})
+        for task in tasks:
+            with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
+                self.assertEqual((0, 0), self.run_hidden(task, tmp, reference=True), task['id'])
 
 
 if __name__ == '__main__':

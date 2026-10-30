@@ -109,6 +109,12 @@ regression test (**6/6**, versus 0/6). About 4,900 input tokens per turn are fix
 of it Claude Code's own sandbox instructions. If you prefer fewer tokens, the benchmark page shows which
 two switches bring it back to about +20%.
 
+**Rerun on 4.3.0 with Claude Opus 5.5 (2026-10-30), eight tasks including four multi-file ones:** the
+harness cost **+11% to +27%** per task and was never more correct (30/30 both arms). The newer model ran
+the tests without the harness too (27/27), so that advantage is gone; what remains is the regression test
+after a bug fix (**15/15** with the harness, 9/15 without). Two tasks built to favor the harness
+(`percent`, `refund`) did not. On the larger tasks about 60% of the extra cost is the sandbox.
+
 → [Verification report](docs/VERIFICATION-REPORT.md) · [Benchmark and how to cut the overhead](docs/BENCHMARK.md)
 
 ## What gets blocked
@@ -182,9 +188,11 @@ Everything above was measured, but some things have not been, and they are liste
    rules this out (12/12 ×3 on Codex and Claude Code). Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
-2. **On larger tasks the harness has not paid off yet.** On two multi-file tasks (`cart`, `listing`) both
-   arms were 6/6 correct and ran the tests; the harness cost about +20%. Cutting needless `dev-debug` and
-   profile reads lowered the total by only 2%, so most of the overhead is per-turn context and testing.
+2. **On larger tasks the harness has not paid off yet.** On four multi-file tasks (`cart`, `listing`, and
+   `percent`, `refund`, built to favor the harness) both arms were equally correct; the harness cost +11%
+   to +27%. Cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise. Turning the
+   sandbox off cut about 60% of the extra cost on `cart`/`listing`; removing the regression-test rule did
+   not change it beyond noise. A task where the harness wins on current models is still missing.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
    (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.
 4. **The guard is not a firewall.** It does not see secrets printed through variables, targets passed
