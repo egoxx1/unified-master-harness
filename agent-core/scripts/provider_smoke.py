@@ -85,7 +85,7 @@ def provider_command(provider: str, fixture: Path, args) -> list[str]:
     if provider == 'claude':
         return ['claude', '-p', PROMPT, '--output-format', 'stream-json', '--verbose']
     if provider == 'antigravity':
-        return ['agy', '-p', AGY_PROMPT, '--print-timeout', f'{args.timeout}s']
+        return ['agy', '-p', AGY_PROMPT, '--print-timeout', f'{args.timeout}s'] + (['--model', args.agy_model] if getattr(args, 'agy_model', '') else [])
     if provider == 'codex':
         cmd = ['codex', 'exec', '--ephemeral', '-C', str(fixture),
                '-c', f'projects."{fixture}".trust_level="trusted"',
@@ -261,6 +261,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description='V4 provider smoke test (harmless fixtures only).')
     ap.add_argument('--providers', default='claude,antigravity,codex')
     ap.add_argument('--timeout', type=int, default=300)
+    ap.add_argument('--agy-model', default='', help='agy --model value, e.g. gemini-3.8-flash-high (default: the CLI default)')
     ap.add_argument('--codex-model', default='')
     ap.add_argument('--keep', action='store_true', help='keep the fixture directories for inspection')
     ap.add_argument('--verbose', action='store_true')

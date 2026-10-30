@@ -111,10 +111,15 @@ REPL_INLINE = {'lua': {'-e'}, 'julia': {'-e', '-E', '--eval', '--print'}, 'R': {
 RAILS_CONSOLE = {'console', 'c', 'dbconsole', 'db'}
 # Code fetched from the network or decoded at runtime and run at once: the guard never sees what runs.
 FETCH_TO_INTERPRETER = re.compile(
-    r'\b(?:curl|wget|base64\s+(?:-d|-D|--decode)|xxd\s+-r|openssl\s+(?:base64|enc)\b[^|]*\s-d)\b[^|;&]*\|\s*(?:sudo\s+)?'
+    r'\b(?:curl|wget|base64\s+(?:-d|-D|--decode)|xxd\s+-r|openssl\s+(?:base64|enc)\b[^|]*\s-d'
+    r'|g?unzip|[gbx]?zcat|zstdcat|(?:gzip|bzip2|xz|zstd)\s+(?:-\w*d\w*|--decompress))\b[^|;&]*\|\s*(?:sudo\s+)?'
     r'(?:sh|bash|zsh|dash|ksh|python(?:3(?:\.\d+)?)?|node|perl|ruby)'
     r'(?:\s+(?!-[cmeEp]\b)-\S*)*(?:\s+--(?:\s[^|;&>]*)?)?\s*(?:\d*>[^|;&]*)?(?:$|[;&|)])')  # runs stdin as code; `python3 -m json.tool` reads data
 FETCH_SUBSTITUTION = re.compile(r'(?:\$\(|<\(|`)\s*(?:curl|wget)\b')
+# Inline code that decodes a payload and executes it: what runs is not in the command text.
+DECODE_CALL = re.compile(r'b64decode|base64\.decode|decodebytes|atob\(|Buffer\.from\([^)]*base64|unhexlify|fromhex|decode\([\'"](?:hex|base64)|unpack\(["\']m', re.I)
+EXEC_SINK = re.compile(r'\bexec\(|\beval\(|os\.system|os\.popen|subprocess|child_process|execSync|\bsystem\(|new Function|`', re.I)
+INLINE_CODE = re.compile(r'(?:^|[;&|(]\s*)(?:sudo\s+)?(?:python(?:3(?:\.\d+)?)?\s+-c|node\s+(?:-e|--eval)|perl\s+-e|ruby\s+-e)\s')
 INTERPRETER_CALL = re.compile(r'(?:^|[;&|(]\s*)(?:sudo\s+)?(?:sh|bash|zsh|dash|ksh|python(?:3(?:\.\d+)?)?|node|perl|ruby|eval|source|\.)\s')
 SSH_NO_SHELL = {'-N', '-W', '-O', '-G', '-Q', '-V'}  # forwarding, control and query modes start no remote shell
 INTERACTIVE_MODULES = {'code', 'pdb', 'IPython', 'idlelib', 'asyncio'}
@@ -499,6 +504,10 @@ def classify_command(command: str, depth: int = 0) -> Verdict:
     verdict = ALLOW
     if _broad_env_dump(command):
         verdict = _destructive('Blocked broad environment dump because it can expose credentials.')
+    if INLINE_CODE.search(command) and DECODE_CALL.search(command) and EXEC_SINK.search(command):
+        verdict = _worst(verdict, _external('Inline code that decodes a payload and executes it cannot be checked first.'))
+    if '<<<' in command and SECRET_VARIABLE.search(command.split('<<<', 1)[1]):
+        verdict = _worst(verdict, _sensitive('A here-string of a credential variable exposes its value.'))
     if FETCH_TO_INTERPRETER.search(command) or (FETCH_SUBSTITUTION.search(command) and INTERPRETER_CALL.search(command)):
         verdict = _worst(verdict, _external('Running code fetched from the network or decoded at runtime cannot be checked '
                                             'first; download it to a file, read it, then run the file.'))
@@ -755,6 +764,23 @@ def _classify_mcp(tool_name: str, tool_input: dict[str, Any]) -> Verdict:
         if any(w in name for w in ('exec', 'shell', 'command', 'terminal', 'run')):
             verdict = _worst(verdict, classify_command(value))
     return verdict
+
+
+PATH_LIKE_KEY = re.compile(r'path|file|target|dest|source|src|dir', re.I)
+WRITE_LIKE_TOOL = re.compile(r'write|edit|create|move|rename|delete|remove|replace|patch|save|append', re.I)
+
+
+def classify_unknown_tool(tool_name: str, tool_input: dict[str, Any], base: str = '', root: str = '') -> Verdict:
+    """A tool the policy has no rule for (a renamed or new provider tool): check only its path-like arguments."""
+    paths = [s for key, value in (tool_input or {}).items() if PATH_LIKE_KEY.search(str(key)) for s in _strings(value)]
+    for path in paths:
+        if sensitive_path(path):
+            return _sensitive(f'{tool_name} targets sensitive file {Path(path).name}, which may expose credentials.')
+    if WRITE_LIKE_TOOL.search(tool_name):
+        for path in paths:
+            if _patch_target_protected(path, base, root):
+                return _harness(f'{tool_name} would change harness enforcement file {Path(path).name}; needs explicit user approval.')
+    return ALLOW
 
 
 def _relative_base(cwd: str | None, root: str | None) -> str:

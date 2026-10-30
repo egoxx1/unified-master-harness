@@ -74,6 +74,29 @@ class PolicyTests(unittest.TestCase):
         self.allow('env NODE_ENV=test npm test')
         self.allow('set -euo pipefail; npm test')  # `set` with flags changes options, it does not dump them
 
+    def test_antigravity_unknown_tools_check_path_arguments(self):
+        # A renamed or new Antigravity tool reaches the hook (matcher .*): secret and harness paths are denied, the rest
+        # gets no decision so Antigravity's own permission mode applies.
+        for name, args, expected in (('view_file_v2', {'FilePath': '/r/.env.local'}, 'deny'),
+                                     ('replace_file_content', {'TargetFile': str(ROOT/'AGENTS.md'), 'Content': 'x'}, 'deny'),
+                                     ('list_dir', {'DirectoryPath': str(ROOT/'src')}, ''),
+                                     ('send_message', {'Message': 'see .env.local'}, ''),
+                                     ('view_file_v2', {'FilePath': str(ROOT/'AGENTS.md')}, '')):
+            with self.subTest(tool=name, args=args):
+                code, out, _ = hook('agent-core/hooks/antigravity_pretool.py', {'toolCall': {'name': name, 'args': args}, 'workspacePaths': [str(ROOT)]})
+                self.assertEqual(0, code)
+                self.assertEqual(expected, json.loads(out)['decision'] if out.strip() else '')
+
+    def test_more_decoders_and_secret_here_strings_ask(self):
+        for command in ('gzip -dc p.gz | sh', 'zcat p.gz | bash', 'xz -d -c p.xz | sh', 'cat <<< "$API_TOKEN"',
+                        'python3 -c "import base64,os;os.system(base64.b64decode(\'cm0=\'))"',
+                        'node -e "require(\'child_process\').execSync(Buffer.from(\'bHM=\',\'base64\').toString())"'):
+            with self.subTest(command=command):
+                self.assertEqual('ask', P.classify_command(command).action, command)
+        for command in ('gzip -dc data.gz > data.csv', 'zcat log.gz | grep error', 'cat <<< "$NAME"',
+                        'python3 -c "import base64;print(base64.b64decode(\'aGk=\'))"'):
+            with self.subTest(command=command): self.allow(command)
+
     def test_claude_mcp_tools_are_checked(self):
         settings = json.loads((ROOT/'.claude/settings.json').read_text())
         self.assertIn('mcp__.*', settings['hooks']['PreToolUse'][0]['matcher'])
@@ -469,7 +492,7 @@ class AdapterTests(unittest.TestCase):
     def test_antigravity_hook_config_matches_current_schema(self):
         config=json.loads((ROOT/'.agents/hooks.json').read_text())
         groups=config['v4-safety']['PreToolUse']
-        self.assertEqual('run_command|view_file|read_file|edit_file|write_file',groups[0]['matcher'])
+        self.assertEqual('.*',groups[0]['matcher'])
         self.assertIn('python3 -B "$d/$f"',groups[0]['hooks'][0]['command'])
 
     def test_antigravity_hook_command_finds_script_from_any_cwd_and_fails_closed(self):

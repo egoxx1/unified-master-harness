@@ -6,11 +6,14 @@ import sys
 from pathlib import Path
 
 sys.dont_write_bytecode = True  # never leave __pycache__ inside the harness tree
-from policy import classify_generic  # noqa: E402
+from policy import _relative_base, classify_generic, classify_unknown_tool  # noqa: E402
 from hook_log import record  # noqa: E402
 from scope import project_hooks_dir, should_defer  # noqa: E402
 
-MAX_INPUT_BYTES = 128 * 1024  # as in codex_pretool.py: deny what could not be checked within the 5 s timeout
+MAX_INPUT_BYTES = 128 * 1024
+# Tools with their own rules. The hook matches every tool (".*"): Antigravity 1.4 renamed its file tools once and
+# the hook missed them, so any other tool still gets its path-like arguments checked.
+KNOWN_TOOLS = {'run_command', 'view_file', 'read_file', 'edit_file', 'write_file'}  # as in codex_pretool.py: deny what could not be checked within the 5 s timeout
 
 # Antigravity's "allow" auto-approves the tool call, so only a small, fully
 # matched set of read-only/dev-check commands may return it.
@@ -59,7 +62,15 @@ def main() -> int:
     if should_defer(cwd):
         return 0  # global copy: no output, the project's own equal-or-newer V4 hook decides
     hooks_dir = project_hooks_dir(cwd) or Path(__file__).resolve().parent
-    verdict = classify_generic(tool, args, cwd, str(hooks_dir.parents[1]))
+    root = str(hooks_dir.parents[1])
+    if tool not in KNOWN_TOOLS:
+        verdict = classify_unknown_tool(tool, args, _relative_base(cwd, root), root)
+        if verdict.action == 'allow':
+            return 0  # no output: never auto-approve a tool this policy knows nothing about
+        record('antigravity', tool, args, 'deny', verdict)
+        print(json.dumps({'decision': 'deny', 'reason': verdict.reason}))
+        return 0
+    verdict = classify_generic(tool, args, cwd, root)
     if tool == 'run_command':
         command = args.get('CommandLine', '')
         decision = command_decision(command if isinstance(command, str) else '', verdict)
