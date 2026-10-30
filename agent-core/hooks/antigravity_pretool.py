@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import re
 import sys
+from pathlib import Path
 
 sys.dont_write_bytecode = True  # never leave __pycache__ inside the harness tree
 from policy import classify_generic  # noqa: E402
 from hook_log import record  # noqa: E402
-from scope import should_defer  # noqa: E402
+from scope import project_hooks_dir, should_defer  # noqa: E402
+
+MAX_INPUT_BYTES = 512 * 1024  # as in codex_pretool.py: deny what could not be checked within the 5 s timeout
 
 # Antigravity's "allow" auto-approves the tool call, so only a small, fully
 # matched set of read-only/dev-check commands may return it.
@@ -47,16 +50,23 @@ def main() -> int:
     except (KeyError, ValueError, TypeError):
         print(json.dumps({'decision': 'deny', 'reason': 'V4 safety hook could not parse tool input.'}))
         return 0
+    if len(json.dumps(args)) > MAX_INPUT_BYTES and tool in ('run_command', 'edit_file', 'write_file'):
+        print(json.dumps({'decision': 'deny', 'reason': f'Tool input over {MAX_INPUT_BYTES // 1024} KB is too large to check '
+                          'within the hook timeout; write it in smaller parts.'}))
+        return 0
     workspaces = event.get('workspacePaths') or []
     cwd = args.get('Cwd') or (workspaces[0] if workspaces and isinstance(workspaces[0], str) else None)
     if should_defer(cwd):
         return 0  # global copy: no output, the project's own equal-or-newer V4 hook decides
-    verdict = classify_generic(tool, args)
+    hooks_dir = project_hooks_dir(cwd) or Path(__file__).resolve().parent
+    verdict = classify_generic(tool, args, cwd, str(hooks_dir.parents[1]))
     if tool == 'run_command':
         command = args.get('CommandLine', '')
         decision = command_decision(command if isinstance(command, str) else '', verdict)
     else:
         decision = 'deny' if verdict.action == 'ask' else verdict.action
+    if decision == 'allow' and tool in ('edit_file', 'write_file'):
+        return 0  # no output: Antigravity's own permission setting decides, "allow" would auto-approve the edit
     record('antigravity', tool, args, decision, verdict)
     reason = verdict.reason
     if verdict.kind == 'external' and decision == 'deny':

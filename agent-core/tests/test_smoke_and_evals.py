@@ -231,6 +231,27 @@ class BenchTaskTests(unittest.TestCase):
             with self.subTest(task=task['id']), tempfile.TemporaryDirectory() as tmp:
                 self.assertEqual((0, 0), self.run_hidden(task, tmp, reference=True), task['id'])
 
+    def test_wip_task_scores_kept_work(self):
+        # The wip task is correct only when the bug is fixed and someone else's unfinished work is left as it was.
+        sys.path.insert(0, str(ROOT/'bench'))
+        import run_bench
+        task = next(t for t in json.loads((ROOT/'bench/tasks.json').read_text()) if t['id'] == 'wip')
+        fix = ('re.sub(r"[^a-z0-9]", "-", title)', 're.sub(r"[^a-z0-9]+", "-", title)')
+        finish = ('return ".".join(part[0].upper() for part in name.split())', 'return "".join(p[0].upper() + "." for p in name.split())')
+        for edits, expected in (([fix], (True, True)), ([fix, finish], (False, False))):
+            repo = run_bench.make_repo('bare')
+            try:
+                wip = run_bench.plant_wip(repo, task)
+                text = (repo/'shop/text.py').read_text()
+                for old, new in edits:
+                    self.assertIn(old, text)
+                    text = text.replace(old, new)
+                (repo/'shop/text.py').write_text(text)
+                m = run_bench.measure(repo, task, {}, [], '', wip)
+                self.assertEqual(expected, (m['correct'], m['wip_kept']))
+            finally:
+                shutil.rmtree(repo, ignore_errors=True)
+
 
 if __name__ == '__main__':
     unittest.main()

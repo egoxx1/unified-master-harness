@@ -71,7 +71,7 @@ def subject_of(tool: str, tool_input: dict[str, Any]) -> tuple[str, str]:
         return ' '.join(['apply_patch', *names])[:200], command
     if command:
         return command_shape(strip_heredoc_bodies(command)), command
-    for key in ('file_path', 'path', 'AbsolutePath', 'TargetFile', 'glob'):
+    for key in ('file_path', 'path', 'AbsolutePath', 'TargetFile', 'Path', 'glob'):
         value = tool_input.get(key)
         if isinstance(value, str) and value:
             return f'{tool} {Path(value).name}', value

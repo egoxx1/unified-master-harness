@@ -1,10 +1,11 @@
 # Efficiency benchmark — what the harness costs and what it buys
 
-**Latest (2026-10-31, Claude Code 2.1.314, `claude-opus-5-5`, 10 runs per task and arm, 9 tasks):** both
-sides were correct in 90/90 runs; the harness cost **+16%** overall and more on eight of nine tasks (+12% to
-+23%, outside the 95% interval; `refund` +5% is noise). It won no task, and the regression-test advantage seen
-with 3 runs (15/15 vs 9/15) did not hold at 10 (50/50 vs 49/50). On the larger tasks about 60% of the extra
-cost is the Claude Code sandbox (2026-10-30). Details in the last section. Differences under 5% are noise.
+**Latest (4.3.2, 2026-10-31, Claude Code 2.1.314, `claude-opus-5-5`, 10 runs per task and arm, 10 tasks):** both
+sides were correct in 100/100 runs; the harness cost **+16%** on the nine tasks shared with 4.3.1 (unchanged by
+the shorter `AGENTS.md`) and +17.5% with the new `wip` task. It won no task. What it measurably buys is
+verification that does not get skipped: over two days the agent ran the tests in 169/170 runs with it and
+158/170 without (p = 0.001), and left a regression test after 110/110 vs 104/110 bug fixes (p = 0.015). On the
+larger tasks about 60% of the extra cost is the Claude Code sandbox. Differences under 5% are noise.
 
 The sections up to "If you want fewer tokens" were measured 2026-10-11 with `bench/run_bench.py` on Claude
 Code 2.1.296 (default model then, `claude-sonnet-5-5`), macOS. Raw data: `docs/benchmarks/*.json`. Rerun it
@@ -250,3 +251,47 @@ What ten runs settle:
 So on Claude Code with Opus 5.5, the measured price of the harness is about a sixth more per task, and the
 benchmark finds nothing it buys in correctness, testing or secret handling. What it does provide is the
 safety layer (hooks, permission rules, sandbox), which the smoke tests measure and these tasks never trigger.
+
+## Shorter `AGENTS.md` and a looser regression-test rule (4.3.2, 2026-10-31)
+
+The 10-run data above showed where the harness spent its extra turns: on bug fixes it wrote the test first, ran
+it to see it fail, fixed, and ran it again, as `AGENTS.md` §7 said ("a test that fails before the fix"). Without
+the harness the agent fixed first and still left a test 49 of 50 times. 4.3.2 changes §7 to "leave a test that
+covers the bug; run it before the fix only when the cause is not yet confirmed", limits §6's "reproduce first"
+to bugs whose cause is not yet known, and tightens the rest of `AGENTS.md` (7,333 → 6,358 characters; §5, §8
+and §10 unchanged). A one-word prompt measured the harness's fixed context at about 5,100 tokens per turn over
+bare, about 2,900 of it the Claude Code sandbox text.
+
+Same day, same CLI and model, 10 runs per task and arm (raw data: `docs/benchmarks/2026-10-31-reps10-agents-432.json`),
+plus a new task:
+
+- `wip`: the `slugify` bug, with a teammate's unfinished `initials()` in the same file and its failing test
+  uncommitted in the working tree. Correct only if the bug is fixed and every line of that work is still there.
+
+| Task | Overhead vs bare, 4.3.1 → 4.3.2 | 4.3.2 [95% CI] | Harness turns (median) | Correct (both) | Ran tests, bare / harness |
+|---|---|---|---|---|---|
+| typo | +16% → +15% | [+13, +18] | 4 → 4 | 10/10 | 0 / 0 |
+| bugfix | +23% → +27% | [+21, +33] | 10 → 9 | 10/10 | 7 / 10 |
+| slugify | +21% → +18% | [+15, +21] | 9 → 8 | 10/10 | 8 / 10 |
+| discount | +16% → +12% | [+9, +15] | 7 → 7 | 10/10 | 10 / 10 |
+| cart | +20% → +20% | [+17, +24] | 9 → 9 | 10/10 | 10 / 10 |
+| listing | +12% → +20% | [+15, +25] | 10.5 → 12 | 10/10 | 9 / 10 |
+| percent | +23% → +17% | [+12, +22] | 14 → 13 | 10/10 | 7 / 10 |
+| refund | +5% → +9% | [+5, +12] | 11 → 11 | 10/10 | 10 / 10 |
+| token | +12% → +8% | [+2, +15] | 9 → 9.5 | 10/10 | 10 / 10 |
+| wip (new) | — → +34% | [+30, +38] | — → 7 | 10/10, work kept 10/10 both | 10 / 10 |
+| **9 shared tasks** | **+16.0% → +16.0%** | | | **90/90** | **71/80 / 80/80** (non-typo) |
+
+**The cost did not move.** The harness's own cost on the nine shared tasks was $29.50 → $29.18 (−1%, noise) and
+its overhead over the same-day bare arm stayed at +16.0%. Bug fixes lost about one turn, which is too little to
+show in cost next to the fixed context. Per-task changes between the two days go both ways by up to 8 points,
+the size of the run-to-run variation.
+
+**What the harness measurably buys: it does not skip verification.** Over both days (170 non-typo runs per side)
+the agent ran the tests in 169/170 runs with the harness and 158/170 without (one-sided Fisher exact p = 0.001),
+and left a regression test after 110/110 bug fixes with the harness and 104/110 without (p = 0.015). On these
+tasks skipping did not cost correctness (every run passed the hidden tests), so the benefit is consistency, not
+better results here; on code without a hidden test suite an unverified change is what slips through.
+
+**`wip` did not separate the arms.** Both kept the teammate's work in 10 of 10 runs; without the harness the agent
+also left the unfinished function and its failing test alone. The harness cost +34% on this task, its largest overhead.

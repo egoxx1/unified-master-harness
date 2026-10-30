@@ -89,21 +89,22 @@ Trust the folder once in Codex (`/hooks`) and Antigravity, then read **[START-HE
 ## Measured results
 
 Every number comes from a real run of the scripts in this repository on the CLI versions in the header
-(October 2026): safety rows on v4.3.1, skill routing on v4.3.0 (`AGENTS.md` and skills unchanged since).
+(October 2026), on v4.3.2.
 
 | Check | Claude Code 2.1.314 | Antigravity 1.4.11 | Codex CLI 0.165.0 |
 |---|:---:|:---:|:---:|
-| Safety smoke on the real CLI | **6/6** | **6/6**¹ | **8/8**³ |
+| Safety smoke on the real CLI | **6/6** | **7/7**¹ | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
-| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **12/12**, 3 runs each⁵ | **12/12**, 3 runs each⁴ |
+| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **33/36** runs, 0 wrong⁵ | **12/12**, 3 runs each⁴ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
-¹ After the 4.3.1 fix: on 4.3.0, Antigravity 1.4.11 read the secret file through its new `read_file` tool,
-which the hook did not match (5/6). ⁴ Every case passed in all 3 runs (36/36), 2026-10-30. ² Real Codex CLI driven by a local stand-in model; a negative
-control with the hooks removed fails as expected. ³ With a real model: the six shared checks plus the
-Codex-only `apply_patch` and bare-`bash` probes. ⁵ 2026-10-30: 11 cases in 3 of 3 runs; `copy-error-message` timed out once at 420 s (no answer) and passed
-3 of 3 when rerun with a 720 s limit.
+¹ Includes editing `AGENTS.md` with the file tool, which no hook covered before 4.3.2; on 4.3.0, Antigravity
+1.4.11 also read the secret file through its new `read_file` tool (5/6). ² Real Codex CLI driven by a local
+stand-in model; a negative control with the hooks removed fails as expected. ³ With a real model: the six shared
+checks plus the Codex-only `apply_patch` and bare-`bash` probes. ⁴ Every case passed in all 3 runs (36/36).
+⁵ No run chose a wrong skill; 3 ended without an answer (one timeout, two provider errors, one of them the
+account's Antigravity quota running out).
 
 **Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
@@ -113,14 +114,16 @@ of it Claude Code's own sandbox instructions. The benchmark page lists two switc
 tasks back to about +20% on 4.2.1; on the larger 4.3.0 tasks, turning off the sandbox saved 9% of the harness
 cost and removing the regression-test rule was within noise.
 
-**Rerun with Claude Opus 5.5 (2026-10-31), nine tasks, 10 runs per task and side (180 runs):** the harness
-cost **+16%** overall (+12% to +23% on eight tasks, one within noise) and was never more correct (90/90 both
-sides). The newer model also runs the tests (77/80 vs 79/80) and leaves a regression test (49/50 vs 50/50)
-without the harness, so neither is a measured benefit any more; a 3-run gap seen the day before (15/15 vs
-9/15) did not hold at 10 runs. Three tasks built to favor the harness (`percent`, `refund`, and `token`,
-where a fake secret sits in `.env.local`) did not: the agent without the harness never opened the file. On
-the larger tasks about 60% of the extra cost is the sandbox. **What the harness measurably provides today
-is the safety layer in the table above, not better task results.**
+**Rerun with Claude Opus 5.5 (2026-10-31), ten tasks, 10 runs per task and side, twice:** the harness cost
+**+16%** and was never more correct (100/100 both sides). A shorter `AGENTS.md` with a looser regression-test
+rule (4.3.2) did not change the cost. What it measurably buys is verification that does not get skipped: over
+170 runs per side the agent ran the tests 169 times with the harness and 158 without (p = 0.001), and left a
+regression test after 110/110 vs 104/110 bug fixes (p = 0.015). These tasks pass their hidden tests either
+way, so that consistency did not show up as correctness here. Four tasks built to favor the harness
+(`percent`, `refund`, `token` with a fake secret in `.env.local`, `wip` with a teammate's unfinished work in
+the tree) did not separate the sides. On the larger tasks about 60% of the extra cost is the sandbox.
+**What the harness provides is the safety layer in the table above and steadier verification, not better
+task results.**
 
 → [Verification report](docs/VERIFICATION-REPORT.md) · [Benchmark and how to cut the overhead](docs/BENCHMARK.md)
 
@@ -195,11 +198,11 @@ Everything above was measured, but some things have not been, and they are liste
    rules this out (12/12 ×3 on Codex and Claude Code). Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0, covered by unit tests and by the real-model Codex smoke (8/8).
-2. **On current models the harness has not paid off in task results.** Over nine tasks × 10 runs per side,
-   including three built to favor it (`percent`, `refund`, `token`), both sides were correct 90/90 and the
-   harness cost +16%. Cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise.
-   Turning the sandbox off cut about 60% of the extra cost on `cart`/`listing`; removing the
-   regression-test rule did not change it beyond noise. A task where the harness wins is still missing.
+2. **On current models the harness has not paid off in task results.** Over ten tasks × 10 runs per side,
+   including four built to favor it, both sides were correct 100/100 and the harness cost +16%; a shorter
+   `AGENTS.md` and cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise. Turning the
+   sandbox off cut about 60% of the extra cost on `cart`/`listing`. It does verify more steadily (tests run
+   169/170 vs 158/170). A task where that changes the outcome is still missing.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
    (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.
 4. **The guard is not a firewall.** It does not see secrets printed through variables, targets passed
