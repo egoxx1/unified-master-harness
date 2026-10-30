@@ -40,8 +40,9 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
 - `run_evals.py --repeat N` runs every routing case N times; a case passes only when all N runs pass, and
   cases that pass only sometimes are listed as unstable (a single pass hid a 2-in-6 failure before).
 - Benchmark: two multi-file tasks, `cart` (a feature built on a helper with a hidden off-by-one) and
-  `listing` (three bugs in three files from one symptom-level report). Not measured yet; a unit test
-  checks that every hidden acceptance test fails on the untouched project.
+  `listing` (three bugs in three files from one symptom-level report); a unit test checks that every
+  hidden acceptance test fails on the untouched project. Measured on Claude Code (12 runs): same results
+  with and without the harness (6/6 correct, 6/6 ran tests), about 23% more cost with it.
 - `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
 
 ## 4.2.2 — 2026-10-11

@@ -181,8 +181,9 @@ Everything above was measured, but some things have not been, and they are liste
    yet chose `dev-debug` for a one-line spacing fix in all three runs, which the eval allows. Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
-2. **Large tasks are unmeasured.** The benchmark covers four small tasks; two multi-file tasks (`cart`,
-   `listing`) are ready in `bench/tasks.json` but have not been run yet. Multi-file changes and real
+2. **On larger tasks the harness showed no gain.** Two multi-file tasks (12 runs, 2026-10-30): correct 6/6
+   and tests run 6/6 with and without the harness, at about 23% more cost with it. See
+   [docs/BENCHMARK.md](docs/BENCHMARK.md). Multi-file changes and real
    debugging, where process discipline should matter most, have no data yet.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
    (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.

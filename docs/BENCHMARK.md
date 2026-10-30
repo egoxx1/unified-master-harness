@@ -79,7 +79,7 @@ V4 keeps both on.
 Medium and large tasks (multi-file changes, real debugging), and Codex and Antigravity. Contributions of
 such tasks to `bench/` are welcome.
 
-## Larger tasks (added in 4.3.0, not measured yet)
+## Larger tasks (added in 4.3.0, measured 2026-10-30)
 
 Two multi-file tasks were added because the four above are too small for process discipline to matter:
 
@@ -88,6 +88,25 @@ Two multi-file tasks were added because the four above are too small for process
 - `listing`: three symptoms from a bug report, caused by bugs in three files (`pagination.py`, `text.py`
   twice), with edge cases (`truncate` for every limit 0-7) the report only hints at.
 
-Both hidden tests fail on the untouched project and pass on a reference solution (checked by a unit test
-and by hand). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
+Both hidden tests fail on the untouched project and pass on a reference solution (checked by a unit test).
+Measured with `python3 bench/run_bench.py --tasks cart,listing --reps 3` on Claude Code (default model),
+macOS, 12 runs. Medians:
 
+| Task | Arm | Correct | Ran tests | Lines changed | Cost | Turns | Seconds |
+|---|---|---|---|---|---|---|---|
+| cart | without | 3/3 | 3/3 | 90 | $0.321 | 8 | 39 |
+| cart | with | 3/3 | 3/3 | 108 | $0.409 | 10 | 67 |
+| listing | without | 3/3 | 3/3 | 21 | $0.292 | 9 | 34 |
+| listing | with | 3/3 | 3/3 | 21 | $0.352 | 13 | 33 |
+
+All 12 runs: $1.85 without, $2.28 with (**+23%**), correct 6/6 on both sides.
+
+**What this shows, plainly: on these tasks the harness bought nothing measurable.** Without the harness
+the agent also ran the tests every time and also found the hidden `paginate()` bug in all three `cart`
+runs. That differs from the 2026-10-11 runs above, where the agent without the harness ran the test suite
+0/9 times; the default model or Claude Code itself now does that unprompted. With the harness the agent
+loaded `dev-debug` on every `listing` run and read the project profile, which accounts for the extra
+turns and tokens. Either these tasks are still too easy to separate the arms, or the harness's
+verification rules now duplicate what the model does by itself. Telling which needs harder tasks (long
+debugging, a change that breaks a distant caller) or a cheaper default for small work; until then the
+honest summary is "same results, about a quarter more cost".
