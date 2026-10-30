@@ -104,7 +104,7 @@ larger cost; on these larger tasks it is the sandbox.
 
 Codex and Antigravity (the benchmark runs Claude Code only). Contributions of tasks to `bench/` are welcome.
 
-## Larger tasks (added in 4.3.0)
+## Larger tasks (added in 4.3.0, measured 2026-10-30)
 
 Two multi-file tasks were added because the four above are too small for process discipline to matter:
 
@@ -114,11 +114,28 @@ Two multi-file tasks were added because the four above are too small for process
   twice), with edge cases (`truncate` for every limit 0-7) the report only hints at.
 
 Both hidden tests fail on the untouched project (checked by a unit test) and pass on a reference solution
-(checked by hand; no reference is stored for these two). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
+(checked by hand; no reference is stored for these two). Measured with
+`python3 bench/run_bench.py --tasks cart,listing --reps 3` on Claude Code 2.1.314 (default model
+`claude-opus-5-5`), macOS, 12 runs. Medians:
 
-Measured 2026-10-30 (Claude Code 2.1.314, default model `claude-opus-5-5`, 3 runs per arm): both arms 6/6
-correct, both ran the tests every time; the harness cost +23% ($1.85 → $2.28). The harness did not buy a
-better result here, so the next step was to cut its fixed process cost.
+| Task | Arm | Correct | Ran tests | Lines changed | Cost | Turns | Seconds |
+|---|---|---|---|---|---|---|---|
+| cart | without | 3/3 | 3/3 | 90 | $0.321 | 8 | 39 |
+| cart | with | 3/3 | 3/3 | 108 | $0.409 | 10 | 67 |
+| listing | without | 3/3 | 3/3 | 21 | $0.292 | 9 | 34 |
+| listing | with | 3/3 | 3/3 | 21 | $0.352 | 13 | 33 |
+
+All 12 runs: $1.85 without, $2.28 with (**+23%**), correct 6/6 on both sides.
+
+**What this shows, plainly: on these tasks the harness bought nothing measurable.** Without the harness
+the agent also ran the tests every time and also found the hidden `paginate()` bug in all three `cart`
+runs. That differs from the 2026-10-11 runs above, where the agent without the harness ran the test suite
+0/9 times; the default model or Claude Code itself now does that unprompted. With the harness the agent
+loaded `dev-debug` on every `listing` run and read the project profile, which looked like the source of
+the extra turns and tokens (removing both did not change the cost beyond noise; see below). Either these
+tasks are still too easy to separate the arms, or the harness's verification rules now duplicate what the
+model does by itself. Telling which needs harder tasks (long debugging, a change that breaks a distant
+caller) or a cheaper default for small work (both tried below); until then the honest summary is "same results, about a quarter more cost".
 
 ## Cutting fixed process cost on small and medium tasks (4.3.0)
 
@@ -147,9 +164,9 @@ runs, so per-task differences under about 5% are noise. What held: `dev-debug` w
 obvious bugs, profile reads fell from 8 to 3, correctness stayed 18/18, the tests ran in 15/15 non-typo
 runs and every bug fix still left a regression test (9/9). What did not: the cost. Overall it is unchanged
 within noise. The two tasks that lost the `dev-debug` step came out 5% and 6% cheaper, barely past the
-noise line while the unchanged bare arm drifted by up to 7%, so that is not established either. The rest of the overhead is the per-turn
-context (`AGENTS.md`, sandbox instructions) and the testing the harness asks for, which these wording
-changes do not touch. A profile read costs almost nothing on its own because the agent bundles it into a
+noise line while the unchanged bare arm drifted by up to 7%, so that is not established either. The rest
+of the overhead is the per-turn context (`AGENTS.md`, sandbox instructions) and the testing the harness
+asks for, which these wording changes do not touch. A profile read costs almost nothing on its own because the agent bundles it into a
 shell call it makes anyway.
 
 Routing evals with the same change (`run_evals.py --repeat 3`, `small-css` now also forbids `dev-debug`):

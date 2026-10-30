@@ -122,7 +122,7 @@ planning or starting such work and that "don't ask me" is not approval: 6 of 6 r
   or paths built in variables (`rm -rf "$DIR"`). The Claude sandbox and Codex workspace sandbox cover
   part of this; Antigravity has no sandbox layer here.
 - Antigravity's `grep_search` tool is not matched (its argument names are not documented).
-- Codex (4.3.0, checked against the Codex source, not yet on a real model): `apply_patch` edits of harness
+- Codex (4.3.0, checked against the Codex source; the `apply_patch` and bare-`bash` paths also by the real-model smoke): `apply_patch` edits of harness
   files (tool and shell-routed), bare `bash`/`python3`/`node` sessions and hook failures were open paths
   and are now denied, as are bare database shells (`psql`, `sqlite3 db`, ...) and `tmux`/`screen` sessions.
   Still open: interactive programs not on the list (for example `irb`, `ghci`, `ssh host`), MCP tools

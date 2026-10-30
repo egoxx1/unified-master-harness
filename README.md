@@ -187,7 +187,7 @@ Everything above was measured, but some things have not been, and they are liste
    `dev-debug` for a one-line spacing fix in three of three runs until that case forbade it; the policy now
    rules this out (12/12 ×3 on Codex and Claude Code). Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
-   fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
+   fail open) are closed in 4.3.0, covered by unit tests and by the real-model Codex smoke (8/8).
 2. **On larger tasks the harness has not paid off yet.** On four multi-file tasks (`cart`, `listing`, and
    `percent`, `refund`, built to favor the harness) both arms were equally correct; the harness cost +11%
    to +27%. Cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise. Turning the
