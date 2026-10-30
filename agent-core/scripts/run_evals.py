@@ -43,7 +43,7 @@ def command(provider: str, prompt: str, fixture: Path, args) -> list[str]:
     if provider == 'claude':
         return ['claude', '-p', prompt, '--output-format', 'stream-json', '--verbose', '--permission-mode', 'plan']
     if provider == 'antigravity':
-        return ['agy', '-p', prompt, '--mode', 'plan', '--print-timeout', f'{args.timeout}s']
+        return ['agy', '-p', prompt, '--mode', 'plan', '--print-timeout', f'{args.timeout}s'] + (['--model', args.agy_model] if args.agy_model else [])
     if provider == 'codex':
         cmd = ['codex', 'exec', '--ephemeral', '--json', '-s', 'read-only', '-C', str(fixture),
                '-c', f'projects."{fixture}".trust_level="trusted"']
@@ -110,6 +110,7 @@ def main() -> int:
     ap.add_argument('--cases', default='', help='comma-separated case ids (default: all)')
     ap.add_argument('--timeout', type=int, default=0, help='seconds per run (default: 720 on antigravity, 240 otherwise)')
     ap.add_argument('--codex-model', default='')
+    ap.add_argument('--agy-model', default='', help='agy --model value, e.g. gemini-3.8-flash-high (default: the CLI default)')
     ap.add_argument('--basis', choices=['declared', 'union'], default='declared')
     ap.add_argument('--repeat', type=int, default=1, help='run every case N times; a case passes only if all N pass')
     args = ap.parse_args()

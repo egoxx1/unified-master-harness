@@ -91,7 +91,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash|PowerShell|Read|Grep",
+        "matcher": "Bash|PowerShell|Read|Grep|mcp__.*",
         "hooks": [
           {
             "type": "command",
