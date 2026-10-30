@@ -731,6 +731,32 @@ def _glob_targets_sensitive(pattern: str) -> bool:
     return any(fnmatch.fnmatch(probe, pattern) and sensitive_path(probe) for probe in probes) or sensitive_path(pattern)
 
 
+def _strings(value: Any, depth: int = 0) -> list[str]:
+    if depth > 4:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _strings(v, depth + 1)]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings(v, depth + 1)]
+    return []
+
+
+def _classify_mcp(tool_name: str, tool_input: dict[str, Any]) -> Verdict:
+    """No schema is known, so every string argument is checked the way a path or a command would be."""
+    name = tool_name.lower()
+    verdict = ALLOW
+    for value in _strings(tool_input):
+        if sensitive_path(value) or _embedded_sensitive(value):
+            return _sensitive(f'MCP tool {tool_name} references a sensitive file, which may expose credentials.')
+        if any(w in name for w in ('write', 'edit', 'create', 'move', 'delete', 'remove', 'patch')) and HARNESS_PROTECTED.search(value.strip()):
+            verdict = _worst(verdict, _harness(f'MCP tool {tool_name} would change harness enforcement file {Path(value).name}; needs explicit user approval.'))
+        if any(w in name for w in ('exec', 'shell', 'command', 'terminal', 'run')):
+            verdict = _worst(verdict, classify_command(value))
+    return verdict
+
+
 def _relative_base(cwd: str | None, root: str | None) -> str:
     if not cwd or not root:
         return ''
@@ -769,6 +795,8 @@ def classify_generic(tool_name: str, tool_input: dict[str, Any], cwd: str | None
             return _harness(f'Editing harness enforcement file {Path(path).name} needs explicit user approval.')
         if sensitive_path(path):
             return _sensitive(f'Writing sensitive file {Path(path).name} needs explicit user approval.')
+    if tool_name.startswith('mcp__'):  # Claude Code MCP tools: mcp__<server>__<tool>, arguments vary by server
+        return _classify_mcp(tool_name, tool_input)
     if tool_name == 'Grep':
         path = _first_value(tool_input, ('path',))
         glob = _first_value(tool_input, ('glob',))
