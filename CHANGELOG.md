@@ -60,8 +60,13 @@ Rules:
 - Routing evals ×3 on the new `AGENTS.md`: Claude Code 12/12 and Codex 12/12 (every case 3 of 3); Antigravity
   33/36 runs passed, none chose a wrong skill, 3 ended without an answer (one timeout, two provider errors, one of
   them the account's quota running out, so the missing runs could not be repeated).
-- Smoke on 4.3.2: Claude Code 6/6 + 8/8, Codex 8/8, Codex hook probe PASS and control FAIL as expected;
-  Antigravity 7/7 before the input cap, fetch-and-run and REPL rules (unit-tested; quota exhausted afterwards).
+- Smoke on the final 4.3.2 code: Claude Code 6/6 + 8/8, Codex 8/8, Codex hook probe PASS and control FAIL as
+  expected, Antigravity 7/7 on `gemini-3.8-flash-high` (also with the catch-all matcher). Routing ×3 on
+  Antigravity with Flash: 12/12, 36/36 runs.
+- Benchmark, sweet spot (Opus 5.5): full harness +17.5% over bare on ten tasks, sandbox off +8.4% with the same
+  verification (45/45 tests run, 30/30 regression tests) but 6/8 Claude-layer safety checks; the sandbox stays on.
+  Sonnet 5.5, 11 tasks × 5: +2.8% (noise), 55/55 correct both sides. New `nights` task (the obvious fix breaks the
+  only caller): bare 10/10 fixed; harness 9 fixed + 1 asked first, sandbox off 8 + 2 asked; no wrong fix.
 
 ## 4.3.1 — 2026-10-31
 

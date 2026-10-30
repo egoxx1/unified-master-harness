@@ -3,9 +3,8 @@
 What has actually been measured, on which versions, and what has not. Every number here comes from
 a real run of the scripts in `agent-core/scripts/`; rerun them to reproduce. Dates are 2026-10-10/11 (v4.2.1), 2026-10-30
 (v4.3.0) and 2026-10-31 (v4.3.1, v4.3.2). The summary rows are v4.3.2 on Claude Code 2.1.314, Antigravity
-1.4.11 and Codex CLI 0.165.0. The Antigravity smoke ran before the last three 4.3.2 policy additions (input
-size cap, fetch-and-run, more Codex REPLs; unit-tested) and could not be repeated: the account's Antigravity
-quota ran out during the routing eval.
+1.4.11 and Codex CLI 0.165.0. The default Antigravity model's quota (Gemini 4 Argon) ran out during the routing
+eval; the final Antigravity smoke and routing runs used `gemini-3.8-flash-high` (`--agy-model`) on the final code.
 
 Environments: macOS 27 on Apple silicon (Python 3.14) and Linux (Python 3.12; unit tests also on 3.10).
 
@@ -13,11 +12,11 @@ Environments: macOS 27 on Apple silicon (Python 3.14) and Linux (Python 3.12; un
 
 | Area | Claude Code 2.1.314 | Antigravity 1.4.11 | Codex CLI 0.165.0 |
 |---|---|---|---|
-| Safety smoke (`provider_smoke.py`) | 6/6 PASS | 7/7 PASS, incl. an `edit_file` probe on `AGENTS.md` (4.3.0: 5/6, secret read through `read_file`) | 8/8 PASS (incl. `apply_patch` and bare-`bash` probes) |
+| Safety smoke (`provider_smoke.py`) | 6/6 PASS | 7/7 PASS on the final code (Gemini 3.8 Flash; Argon 7/7 before the last policy additions), incl. an `edit_file` probe on `AGENTS.md` (4.3.0: 5/6, secret read through `read_file`) | 8/8 PASS (incl. `apply_patch` and bare-`bash` probes) |
 | Claude-only layer: sandbox, permission rules, lifecycle hooks | 8/8 PASS | — | — |
 | Hook runtime without a model (`codex_hook_probe.py`) | — | — | PASS, negative control FAIL as expected |
-| Skill routing (`run_evals.py`, 12 cases ×3, v4.3.2 `AGENTS.md`) | 12/12, every case in 3 of 3 runs | 33/36 runs PASS, 0 wrong routes; 3 no answer (1 timeout, 2 provider errors incl. quota exhausted) | 12/12, every case in 3 of 3 runs |
-| Efficiency with vs without (`bench/run_bench.py`) | 4.2.1, 4 small tasks: +42% cost, ran tests 9/9 vs 0/9. 4.3.2 on 2.1.314 (Opus 5.5), 10 tasks × 10 runs per side: +16% on the 9 tasks shared with 4.3.1 (+17.5% with `wip`), 100/100 correct on both sides, no task won. Two days, 170 runs per side: ran tests 169 vs 158 (p = 0.001), regression test 110/110 vs 104/110 (p = 0.015) | — | — |
+| Skill routing (`run_evals.py`, 12 cases ×3, v4.3.2 `AGENTS.md`) | 12/12, every case in 3 of 3 runs | 12/12, every case in 3 of 3 runs on `gemini-3.8-flash-high`; on the default Gemini 4 Argon 33/36 runs, 0 wrong, 3 no answer (timeout, provider errors) before its quota ran out | 12/12, every case in 3 of 3 runs |
+| Efficiency with vs without (`bench/run_bench.py`) | 4.2.1, 4 small tasks: +42% cost, ran tests 9/9 vs 0/9. 4.3.2 on 2.1.314, 10 tasks × 10 runs per side: Opus 5.5 +17.5% (sandbox off: +8.4%), Sonnet 5.5 +2.8% (noise), 100/100 and 55/55 correct on both sides, no task won. Two days, 170 runs per side: ran tests 169 vs 158 (p = 0.001), regression test 110/110 vs 104/110 (p = 0.015) | — | — |
 | Unit tests | 128 tests, 0 failures (macOS 3.14, v4.3.2); CI on macOS and Linux × Python 3.10/3.12/3.13 | | |
 
 ## Safety smoke (`provider_smoke.py`)

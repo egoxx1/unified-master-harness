@@ -96,15 +96,15 @@ Every number comes from a real run of the scripts in this repository on the CLI 
 | Safety smoke on the real CLI | **6/6** | **7/7**¹ | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
-| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **33/36** runs, 0 wrong⁵ | **12/12**, 3 runs each⁴ |
+| Skill routing, 12 cases | **12/12**, 3 runs each⁴ | **12/12**, 3 runs each⁵ | **12/12**, 3 runs each⁴ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
 ¹ Includes editing `AGENTS.md` with the file tool, which no hook covered before 4.3.2; on 4.3.0, Antigravity
 1.4.11 also read the secret file through its new `read_file` tool (5/6). ² Real Codex CLI driven by a local
 stand-in model; a negative control with the hooks removed fails as expected. ³ With a real model: the six shared
 checks plus the Codex-only `apply_patch` and bare-`bash` probes. ⁴ Every case passed in all 3 runs (36/36).
-⁵ No run chose a wrong skill; 3 ended without an answer (one timeout, two provider errors, one of them the
-account's Antigravity quota running out).
+⁵ On `gemini-3.8-flash-high` (36/36), after the default Gemini 4 Argon quota ran out; with Argon the same policy
+had 33/36, no wrong choice, 3 without an answer (timeout, provider errors).
 
 **Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
@@ -114,16 +114,17 @@ of it Claude Code's own sandbox instructions. The benchmark page lists two switc
 tasks back to about +20% on 4.2.1; on the larger 4.3.0 tasks, turning off the sandbox saved 9% of the harness
 cost and removing the regression-test rule was within noise.
 
-**Rerun with Claude Opus 5.5 (2026-10-31), ten tasks, 10 runs per task and side, twice:** the harness cost
-**+16%** and was never more correct (100/100 both sides). A shorter `AGENTS.md` with a looser regression-test
+**Rerun on 4.3.2 (2026-10-31), ten tasks, 10 runs per task and side:** on Claude Opus 5.5 the harness cost
+**+17.5%**, on Sonnet 5.5 **+2.8%** (within noise); it was never more correct (100/100 and 55/55 both sides). A shorter `AGENTS.md` with a looser regression-test
 rule (4.3.2) did not change the cost. What it measurably buys is verification that does not get skipped: over
 170 runs per side the agent ran the tests 169 times with the harness and 158 without (p = 0.001), and left a
 regression test after 110/110 vs 104/110 bug fixes (p = 0.015). These tasks pass their hidden tests either
 way, so that consistency did not show up as correctness here. Four tasks built to favor the harness
 (`percent`, `refund`, `token` with a fake secret in `.env.local`, `wip` with a teammate's unfinished work in
-the tree) did not separate the sides. On the larger tasks about 60% of the extra cost is the sandbox.
-**What the harness provides is the safety layer in the table above and steadier verification, not better
-task results.**
+the tree) did not separate the sides. About half of the Opus overhead is the sandbox: turned off, the harness
+costs +8.4% with the same verification but no longer stops writes outside the project or shell edits of its own
+files. **The default keeps it on. What the harness provides is the safety layer in the table above and steadier
+verification, not better task results.**
 
 → [Verification report](docs/VERIFICATION-REPORT.md) · [Benchmark and how to cut the overhead](docs/BENCHMARK.md)
 
@@ -199,7 +200,8 @@ Everything above was measured, but some things have not been, and they are liste
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0, covered by unit tests and by the real-model Codex smoke (8/8).
 2. **On current models the harness has not paid off in task results.** Over ten tasks × 10 runs per side,
-   including four built to favor it, both sides were correct 100/100 and the harness cost +16%; a shorter
+   including four built to favor it, both sides were correct 100/100 and the harness cost +17.5% on Opus
+   (+2.8% on Sonnet); a shorter
    `AGENTS.md` and cutting needless `dev-debug` runs (6 → 0) left the cost unchanged within noise. Turning the
    sandbox off cut about 60% of the extra cost on `cart`/`listing`. It does verify more steadily (tests run
    169/170 vs 158/170). A task where that changes the outcome is still missing.
