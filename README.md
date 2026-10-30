@@ -90,16 +90,17 @@ Trust the folder once in Codex (`/hooks`) and Antigravity, then read **[START-HE
 
 Every number comes from a real run of the scripts in this repository (v4.2.1, October 2026).
 
-| Check | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161.0 |
+| Check | Claude Code 2.1.296 | Antigravity 1.3.3 | Codex CLI 0.161–0.165 |
 |---|:---:|:---:|:---:|
-| Safety smoke on the real CLI | **6/6** | **6/6** | not run¹ |
+| Safety smoke on the real CLI | **6/6** | **6/6** | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
 | Skill routing, 12 cases | **12/12** | **12/12** | not run¹ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
-¹ No usable Codex account at test time. ² Real Codex CLI driven by a local stand-in model; a negative
-control with the hooks removed fails as expected.
+¹ Not run yet with a real Codex model. ² Real Codex CLI driven by a local stand-in model; a negative
+control with the hooks removed fails as expected. ³ v4.3.0 on Codex CLI 0.165.0 with a real model (2026-10-30):
+the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes.
 
 **Cost, stated plainly.** Across 24 Claude Code runs of four small tasks, the harness cost **about 42%
 more** than no harness, and every run was correct either way. What the extra buys: on the non-trivial
@@ -176,8 +177,8 @@ Claude Code, edits through the edit tool ask for your approval.
 
 Everything above was measured, but some things have not been, and they are listed here on purpose.
 
-1. **Codex with a real model is untested.** The Codex hooks are proven with a stand-in model; whether a
-   Codex model follows `AGENTS.md` and picks the right skills has not been measured yet. Three Codex-only
+1. **Codex skill routing is unmeasured.** The Codex safety smoke passed 8/8 with a real model (v4.3.0);
+   whether a Codex model picks the right skills over the 12 routing cases has not been measured yet. Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
 2. **Large tasks are unmeasured.** The benchmark covers four small tasks; two multi-file tasks (`cart`,

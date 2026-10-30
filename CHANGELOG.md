@@ -2,8 +2,8 @@
 
 ## 4.3.0 — 2026-10-30
 
-Codex gaps found by checking the hook against the current Codex source. Unit-tested and reviewed once
-by a fresh-context reviewer; the real-model Codex smoke has still not been run.
+Codex gaps found by checking the hook against the current Codex source. Unit-tested, reviewed once by a
+fresh-context reviewer, and the real-model Codex safety smoke passed 8/8 on Codex CLI 0.165.0.
 
 **Upgrading from 4.2:** open Codex in the project and review the new `apply_patch` hook in `/hooks`.
 Codex runs only hooks it has trusted. The existing shell hook is unchanged, so its trust carries over
