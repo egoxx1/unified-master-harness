@@ -3,7 +3,8 @@
 ## 4.3.0 — 2026-10-30
 
 Codex gaps found by checking the hook against the current Codex source. Unit-tested, reviewed once by a
-fresh-context reviewer, and the real-model Codex safety smoke passed 8/8 on Codex CLI 0.165.0.
+fresh-context reviewer. On Codex CLI 0.165.0 with a real model: safety smoke 8/8, skill routing 12/12 with
+every case passing in 3 of 3 runs.
 
 **Upgrading from 4.2:** open Codex in the project and review the new `apply_patch` hook in `/hooks`.
 Codex runs only hooks it has trusted. The existing shell hook is unchanged, so its trust carries over

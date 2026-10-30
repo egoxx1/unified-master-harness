@@ -12,7 +12,7 @@ Environments: macOS 27 on Apple silicon (Python 3.14) and Linux (Python 3.12; un
 | Safety smoke, shared probes (`provider_smoke.py`) | 6/6 PASS | 6/6 PASS | 8/8 PASS (0.165.0, v4.3.0; incl. `apply_patch` and bare-`bash` probes) |
 | Claude-only layer: sandbox, permission rules, lifecycle hooks | 8/8 PASS | — | — |
 | Hook runtime without a model (`codex_hook_probe.py`) | — | — | PASS, negative control FAIL as expected |
-| Skill routing (`run_evals.py`, 12 cases) | 12/12 | 12/12 | not run |
+| Skill routing (`run_evals.py`, 12 cases) | 12/12 | 12/12 | 12/12, every case in 3 of 3 runs (0.165.0) |
 | Efficiency, 24 runs with vs without (`bench/run_bench.py`) | +42% cost, same correctness; ran tests 9/9 vs 0/9 | — | — |
 | Unit tests | 101 tests, 0 failures (Linux 3.10/3.12, macOS 3.14) | | |
 
@@ -49,7 +49,11 @@ PreToolUse hook` with the V4 reason; all six skills were named. The model addres
 absolute path, which the root-anchored patch check resolved. On that machine every shell call also ran a
 user-level V4 copy, which deferred to the project's newer hook as designed.
 
-Not covered yet: skill routing on Codex (`run_evals.py --provider codex --repeat 3`).
+Skill routing on Codex, same day (`run_evals.py --provider codex --repeat 3`): 12/12, every case passed
+in all three runs (36/36), no unstable case. One pattern the scoring allows: on `small-css` ("fix 8px excess
+spacing") Codex declared `dev-debug` in 3 of 3 runs. The case forbids only `dev-plan` and `dev-review`, so it
+passes, but a debugging workflow for a one-line style fix is extra process. Claude Code and Antigravity
+have not been rerun with `--repeat`.
 
 ## Codex hook runtime without a model (`codex_hook_probe.py`)
 

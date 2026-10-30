@@ -95,10 +95,10 @@ Every number comes from a real run of the scripts in this repository (v4.2.1, Oc
 | Safety smoke on the real CLI | **6/6** | **6/6** | **8/8**³ |
 | Claude-only layer (sandbox, permissions, lifecycle) | **8/8** | — | — |
 | Hook runtime without a model | — | — | **PASS**² |
-| Skill routing, 12 cases | **12/12** | **12/12** | not run¹ |
+| Skill routing, 12 cases | **12/12** | **12/12** | **12/12**, 3 runs each⁴ |
 | CI: macOS + Linux × Python 3.10 / 3.12 / 3.13 | | **6/6 green** | |
 
-¹ Not run yet with a real Codex model. ² Real Codex CLI driven by a local stand-in model; a negative
+⁴ Every case passed in all 3 runs (36/36), Codex CLI 0.165.0, 2026-10-30. ² Real Codex CLI driven by a local stand-in model; a negative
 control with the hooks removed fails as expected. ³ v4.3.0 on Codex CLI 0.165.0 with a real model (2026-10-30):
 the six shared checks plus the Codex-only `apply_patch` and bare-`bash` probes.
 
@@ -177,8 +177,8 @@ Claude Code, edits through the edit tool ask for your approval.
 
 Everything above was measured, but some things have not been, and they are listed here on purpose.
 
-1. **Codex skill routing is unmeasured.** The Codex safety smoke passed 8/8 with a real model (v4.3.0);
-   whether a Codex model picks the right skills over the 12 routing cases has not been measured yet. Three Codex-only
+1. **The routing eval is lenient.** It checks required and forbidden skills only. Codex passed 36/36 runs,
+   yet chose `dev-debug` for a one-line spacing fix in all three runs, which the eval allows. Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
 2. **Large tasks are unmeasured.** The benchmark covers four small tasks; two multi-file tasks (`cart`,
