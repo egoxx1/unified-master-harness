@@ -76,10 +76,9 @@ V4 keeps both on.
 
 ## Not measured yet
 
-Medium and large tasks (multi-file changes, real debugging), and Codex and Antigravity. Contributions of
-such tasks to `bench/` are welcome.
+Codex and Antigravity (the benchmark runs Claude Code only). Contributions of tasks to `bench/` are welcome.
 
-## Larger tasks (added in 4.3.0, not measured yet)
+## Larger tasks (added in 4.3.0)
 
 Two multi-file tasks were added because the four above are too small for process discipline to matter:
 
@@ -90,4 +89,44 @@ Two multi-file tasks were added because the four above are too small for process
 
 Both hidden tests fail on the untouched project and pass on a reference solution (checked by a unit test
 and by hand). Measure them with `python3 bench/run_bench.py --tasks cart,listing --reps 3`.
+
+Measured 2026-10-30 (Claude Code 2.1.314, default model `claude-opus-5-5`, 3 runs per arm): both arms 6/6
+correct, both ran the tests every time; the harness cost +23% ($1.85 → $2.28). The harness did not buy a
+better result here, so the next step was to cut its fixed process cost.
+
+## Cutting fixed process cost on small and medium tasks (4.3.0)
+
+The 4.3.0 runs showed two steps that added turns without changing results: the agent loaded `dev-debug` for
+bugs whose cause the report or one read of the code already showed (`bugfix` 3/3, `listing` 3/3), and it
+opened `agent-core/project/profile.md` on most tasks, also when the file did not exist (8 of 18 runs).
+`AGENTS.md` §5/§6 and the `dev-debug` description now say: `dev-debug` only when the cause is not yet known,
+not for spacing, size or color fixes; open the profile only when a needed command is not in the files
+already read.
+
+Same day, same CLI and model, 3 runs per task and arm (raw data:
+`docs/benchmarks/2026-10-30-{before,after}-fixed-cost.json`):
+
+| Task | Harness cost before → after | Overhead vs bare before → after | `dev-debug` loaded | profile opened | Correct (harness) |
+|---|---|---|---|---|---|
+| typo | $0.73 → $0.74 | +17% → +20% | 0 → 0 | 0 → 0 | 3/3, 3/3 |
+| bugfix | $0.96 → $0.91 | +38% → +23% | 3 → 0 | 0 → 0 | 3/3, 3/3 |
+| slugify | $0.84 → $0.85 | +17% → +18% | 0 → 0 | 2 → 0 | 3/3, 3/3 |
+| discount | $0.88 → $0.89 | +15% → +11% | 0 → 0 | 3 → 1 | 3/3, 3/3 |
+| cart | $1.20 → $1.20 | +25% → +27% | 0 → 0 | 1 → 2 | 3/3, 3/3 |
+| listing | $1.08 → $1.01 | +21% → +14% | 3 → 0 | 2 → 0 | 3/3, 3/3 |
+| **All 18 runs per side** | **$5.69 → $5.60 (−2%)** | **+22% → +19%** | **6 → 0** | **8 → 3** | **18/18, 18/18** |
+
+Costs are sums of 3 runs. The bare arm, which did not change, moved by −3% to +7% per task between the two
+runs, so per-task differences under about 5% are noise. What held: `dev-debug` was never loaded for these
+obvious bugs, profile reads fell from 8 to 3, correctness stayed 18/18, the tests ran in 15/15 non-typo
+runs and every bug fix still left a regression test (9/9). What did not: the saving is small. The two
+tasks that lost the `dev-debug` step got cheaper by 5-6%; the rest of the overhead is the per-turn
+context (`AGENTS.md`, sandbox instructions) and the testing the harness asks for, which these wording
+changes do not touch. A profile read costs almost nothing on its own because the agent bundles it into a
+shell call it makes anyway.
+
+Routing evals with the same change (`run_evals.py --repeat 3`, `small-css` now also forbids `dev-debug`):
+Claude Code 12/12 before and after; Codex 11/12 before (`small-css` declared `dev-debug` in 3 of 3 runs,
+rescored from the earlier 4.3.0 run with the harness unchanged) and 12/12 after. `bug-api-500`, a bug whose
+cause is unknown, still routes to `dev-debug` in 3 of 3 runs on both.
 

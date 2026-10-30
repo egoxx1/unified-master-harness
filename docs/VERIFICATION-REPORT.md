@@ -50,10 +50,11 @@ absolute path, which the root-anchored patch check resolved. On that machine eve
 user-level V4 copy, which deferred to the project's newer hook as designed.
 
 Skill routing on Codex, same day (`run_evals.py --provider codex --repeat 3`): 12/12, every case passed
-in all three runs (36/36), no unstable case. One pattern the scoring allows: on `small-css` ("fix 8px excess
-spacing") Codex declared `dev-debug` in 3 of 3 runs. The case forbids only `dev-plan` and `dev-review`, so it
-passes, but a debugging workflow for a one-line style fix is extra process. Claude Code and Antigravity
-have not been rerun with `--repeat`.
+in all three runs (36/36), no unstable case. One pattern the scoring allowed: on `small-css` ("fix 8px excess
+spacing") Codex declared `dev-debug` in 3 of 3 runs. `small-css` now forbids `dev-debug` too, which scores
+that run 11/12. After `AGENTS.md` §5 and the `dev-debug` description were narrowed to bugs with an unknown
+cause (see `BENCHMARK.md`): Codex 12/12 and Claude Code 12/12, each with every case in 3 of 3 runs (Claude
+Code was also 12/12 ×3 before the change). Antigravity has not been rerun with `--repeat`.
 
 ## Codex hook runtime without a model (`codex_hook_probe.py`)
 

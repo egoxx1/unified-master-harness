@@ -40,8 +40,14 @@ unguarded exactly as in 4.2. `doctor.py` warns while a V4 hook has no trust reco
 - `run_evals.py --repeat N` runs every routing case N times; a case passes only when all N runs pass, and
   cases that pass only sometimes are listed as unstable (a single pass hid a 2-in-6 failure before).
 - Benchmark: two multi-file tasks, `cart` (a feature built on a helper with a hidden off-by-one) and
-  `listing` (three bugs in three files from one symptom-level report). Not measured yet; a unit test
-  checks that every hidden acceptance test fails on the untouched project.
+  `listing` (three bugs in three files from one symptom-level report). A unit test checks that every
+  hidden acceptance test fails on the untouched project. Measured: both arms 6/6 correct, harness +23% cost.
+- Less fixed process on small and medium tasks: `dev-debug` (in `AGENTS.md` §5 and its description) is
+  only for bugs whose cause is not yet known, and not for spacing, size or color fixes; `AGENTS.md` §6
+  says to open `agent-core/project/profile.md` only when a needed command is not in the files already read.
+  Benchmark, 18 runs per side: `dev-debug` loads 6 → 0, profile reads 8 → 3, correctness 18/18 kept, cost
+  −2% ($5.69 → $5.60; overhead vs bare +22% → +19%). Routing evals ×3: Claude Code 12/12 → 12/12, Codex
+  11/12 → 12/12. The `small-css` eval case now also forbids `dev-debug`.
 - `POLICY_VERSION` 4.3.0, so a global 4.3 copy keeps guarding projects that still ship 4.2 hooks.
 
 ## 4.2.2 — 2026-10-11

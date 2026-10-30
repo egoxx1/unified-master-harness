@@ -177,13 +177,14 @@ Claude Code, edits through the edit tool ask for your approval.
 
 Everything above was measured, but some things have not been, and they are listed here on purpose.
 
-1. **The routing eval is lenient.** It checks required and forbidden skills only. Codex passed 36/36 runs,
-   yet chose `dev-debug` for a one-line spacing fix in all three runs, which the eval allows. Three Codex-only
+1. **The routing eval is lenient.** It checks required and forbidden skills only. It let Codex choose
+   `dev-debug` for a one-line spacing fix in three of three runs until that case forbade it; the policy now
+   rules this out (12/12 ×3 on Codex and Claude Code). Three Codex-only
    gaps found by reading the Codex source (edits through `apply_patch`, bare shell sessions, hooks that
    fail open) are closed in 4.3.0 and covered by unit tests, not yet by a real-model run.
-2. **Large tasks are unmeasured.** The benchmark covers four small tasks; two multi-file tasks (`cart`,
-   `listing`) are ready in `bench/tasks.json` but have not been run yet. Multi-file changes and real
-   debugging, where process discipline should matter most, have no data yet.
+2. **On larger tasks the harness has not paid off yet.** On two multi-file tasks (`cart`, `listing`) both
+   arms were 6/6 correct and ran the tests; the harness cost about +20%. Cutting needless `dev-debug` and
+   profile reads lowered the total by only 2%, so most of the overhead is per-turn context and testing.
 3. **One passing eval run can hide variance.** Repeating a single case six times exposed a failure
    (2 of 6) that one 12-case pass did not show. Other cases may still vary from run to run.
 4. **The guard is not a firewall.** It does not see secrets printed through variables, targets passed
