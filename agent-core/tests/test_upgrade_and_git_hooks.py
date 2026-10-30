@@ -17,6 +17,13 @@ def run(cmd, cwd):
 
 
 class UpgradeTests(unittest.TestCase):
+    def test_template_manifest_is_current(self):
+        # A stale manifest makes an unzipped template treat changed harness files as project edits on upgrade.
+        import upgrade_harness
+        committed = json.loads((ROOT / 'agent-core/HARNESS-MANIFEST.json').read_text())
+        self.assertEqual(upgrade_harness.build_manifest(ROOT), committed,
+                         'run: python3 agent-core/scripts/upgrade_harness.py --write-manifest')
+
     def setUp(self):
         self.project = make_fixture(ROOT)
         self.template = make_fixture(ROOT)

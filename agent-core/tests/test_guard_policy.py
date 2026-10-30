@@ -274,7 +274,9 @@ class AdapterTests(unittest.TestCase):
                         'node', 'node -i', 'npm test && bash', 'bash -i 2>&1 | tee s.log', 'false || bash', 'bash -lc "python3"',
                         '{ bash; }', '(python3)', 'bash -o pipefail', 'python3 -X dev', 'python3 -m pdb app.py', 'uv run python',
                         'ipython', 'node 2>/dev/null', 'psql -h db mydb', 'mysql -u root', 'sqlite3 app.db', 'mongosh',
-                        'redis-cli -h h', 'tmux', 'tmux attach -t w', 'screen -r w', 'uv run --with x python'):
+                        'redis-cli -h h', 'tmux', 'tmux attach -t w', 'screen -r w', 'uv run --with x python',
+                        'irb', 'irb -r json', 'ghci', 'ghci Main.hs', 'ssh host', 'ssh -p 2222 user@host', 'ssh -t host bash',
+                        'ssh host "python3"'):
             with self.subTest(command=command):
                 self.assertEqual('deny', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
 
@@ -285,7 +287,9 @@ class AdapterTests(unittest.TestCase):
                         'git commit -m "fix\nnode\n"', "cat > run.sh <<'EOF'\nbash\nEOF", 'echo ls | bash', 'bash < s.sh',
                         'uv run pytest', 'python3 app.py 2>&1 | tee log', 'psql -c "select 1"', 'psql mydb < q.sql',
                         'mysql -e "show tables"', 'sqlite3 app.db ".tables"', 'mongosh --eval "1"', 'redis-cli -h h ping',
-                        'tmux new -d -s w "npm run dev"', 'tmux ls', 'screen -dmS w npm start'):
+                        'tmux new -d -s w "npm run dev"', 'tmux ls', 'screen -dmS w npm start',
+                        'irb script.rb', 'ghci -e "1+1"', 'ssh host uptime', 'ssh -p 22 host "ls -la"',
+                        'ssh -N -L 8080:localhost:80 host', 'ssh -O exit host', 'ssh -V'):
             with self.subTest(command=command):
                 self.assertEqual('allow', self.codex_decision({'tool_name': 'Bash', 'tool_input': {'command': command}}))
 
@@ -344,9 +348,12 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual('', out)
 
     def test_antigravity_sensitive_read_blocks(self):
-        code, out, err = hook('agent-core/hooks/antigravity_pretool.py', {'toolCall': {'name':'view_file','args': {'AbsolutePath': '.env.local'}}})
-        self.assertEqual(0,code)
-        self.assertEqual('deny',json.loads(out)['decision'])
+        # view_file{AbsolutePath} up to 1.3, read_file{Path} from 1.4.11 (the smoke caught the new tool reading .env.local).
+        for name, args in (('view_file', {'AbsolutePath': '.env.local'}), ('read_file', {'Path': '/tmp/x/.env.local'})):
+            with self.subTest(tool=name):
+                code, out, err = hook('agent-core/hooks/antigravity_pretool.py', {'toolCall': {'name': name, 'args': args}})
+                self.assertEqual(0,code)
+                self.assertEqual('deny',json.loads(out)['decision'])
 
     def test_antigravity_deny(self):
         for command in ('git clean -f', 'git reset --hard HEAD', 'git push --force origin main', 'rm -rf /', 'env', 'npm test && rm -rf /'):
@@ -381,7 +388,7 @@ class AdapterTests(unittest.TestCase):
     def test_antigravity_hook_config_matches_current_schema(self):
         config=json.loads((ROOT/'.agents/hooks.json').read_text())
         groups=config['v4-safety']['PreToolUse']
-        self.assertEqual('run_command|view_file',groups[0]['matcher'])
+        self.assertEqual('run_command|view_file|read_file',groups[0]['matcher'])
         self.assertIn('python3 -B "$d/$f"',groups[0]['hooks'][0]['command'])
 
     def test_antigravity_hook_command_finds_script_from_any_cwd_and_fails_closed(self):
