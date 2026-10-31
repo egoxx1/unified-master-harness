@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "qualification": {
+    "critical": {
+      "min_occurrences": 1
+    },
+    "high": {
+      "min_occurrences": 1
+    },
+    "medium": {
+      "min_occurrences": 2
+    },
+    "low": {
+      "min_occurrences": 3
+    }
+  },
+  "targets": {
+    "project-profile": {
+      "risk": "low",
+      "human_review_before_promotion": false
+    },
+    "eval": {
+      "risk": "low",
+      "human_review_before_promotion": false
+    },
+    "skill-description": {
+      "risk": "medium",
+      "human_review_before_promotion": false
+    },
+    "skill-procedure": {
+      "risk": "medium",
+      "human_review_before_promotion": false
+    },
+    "script": {
+      "risk": "medium",
+      "human_review_before_promotion": false
+    },
+    "root-policy": {
+      "risk": "high",
+      "human_review_before_promotion": true
+    },
+    "safety-hook": {
+      "risk": "high",
+      "human_review_before_promotion": true
+    },
+    "provider-permission": {
+      "risk": "high",
+      "human_review_before_promotion": true
+    },
+    "external-authority": {
+      "risk": "high",
+      "human_review_before_promotion": true
+    }
+  },
+  "principles": [
+    "No direct self-modification from a single low-severity observation.",
+    "Add or strengthen an eval that represents the failure before changing routing/procedure when practical.",
+    "Use the smallest change that addresses the observed failure.",
+    "Always snapshot the harness before a candidate mutation.",
+    "Reject candidates that improve one case by causing material regressions elsewhere.",
+    "High-risk harness boundaries require human review before promotion."
+  ]
+}

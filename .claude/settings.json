@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "allow": [
+      "Bash",
+      "Edit",
+      "Write",
+      "WebFetch",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.local)",
+      "Read(.env.*.local)",
+      "Read(.env.development)",
+      "Read(.env.dev)",
+      "Read(.env.production)",
+      "Read(.env.prod)",
+      "Read(.env.staging)",
+      "Read(.env.test)",
+      "Read(.envrc)",
+      "Read(*.pem)",
+      "Read(*.key)",
+      "Read(*.p12)",
+      "Read(*.pfx)",
+      "Read(id_rsa)",
+      "Read(id_ed25519)",
+      "Read(id_ecdsa)",
+      "Read(.netrc)",
+      "Read(.pgpass)",
+      "Read(.git-credentials)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(npm publish *)",
+      "Bash(pnpm publish *)",
+      "Bash(yarn publish *)",
+      "Bash(cargo publish *)",
+      "Bash(twine upload *)",
+      "Bash(docker push *)",
+      "Bash(gh pr merge *)",
+      "Bash(gh release *)",
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(kubectl apply *)",
+      "Bash(kubectl delete *)",
+      "Edit(/AGENTS.md)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/agent-core/hooks/**)",
+      "Edit(/agent-core/scripts/**)",
+      "Edit(/agent-core/evals/**)",
+      "Edit(/agent-core/growth/policy.json)",
+      "Edit(/.codex/**)",
+      "Edit(/.agents/**)"
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "python3 -B agent-core/scripts/provider_smoke.py *",
+      "python3 -B agent-core/scripts/run_evals.py *"
+    ],
+    "filesystem": {
+      "allowWrite": [
+        "/tmp",
+        "/private/tmp",
+        "~/.cache",
+        "~/.npm",
+        "~/.pnpm-store",
+        "~/.yarn",
+        "~/.bun",
+        "~/.cargo/registry",
+        "~/go/pkg",
+        "~/.gradle",
+        "~/.m2",
+        "~/Library/Caches"
+      ],
+      "denyWrite": [
+        "./AGENTS.md",
+        "./CLAUDE.md",
+        "./agent-core/hooks",
+        "./agent-core/scripts",
+        "./agent-core/evals",
+        "./agent-core/growth/policy.json",
+        "./.codex",
+        "./.agents"
+      ]
+    },
+    "network": {
+      "allowedDomains": [
+        "*"
+      ]
+    }
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|PowerShell|Read|Grep|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${CLAUDE_PROJECT_DIR}/agent-core/hooks/claude_pretool.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Edit|Write|MultiEdit|NotebookEdit|Bash|Skill)$|^mcp__.*([Pp]laywright|[Bb]rowser)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${CLAUDE_PROJECT_DIR}/agent-core/hooks/claude_session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${CLAUDE_PROJECT_DIR}/agent-core/hooks/claude_session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${CLAUDE_PROJECT_DIR}/agent-core/hooks/claude_session.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -B \"${CLAUDE_PROJECT_DIR}/agent-core/hooks/claude_session.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

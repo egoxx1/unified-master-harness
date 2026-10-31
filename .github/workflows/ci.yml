@@ -1,0 +1,42 @@
+# CI for the harness repository itself (not installed into projects; projects get agent-harness.yml).
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ['3.10', '3.12', '3.13']
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Git identity for test fixtures
+        run: git config --global user.name ci && git config --global user.email ci@example.invalid
+      - name: Unit tests
+        run: python -B -m unittest discover -s agent-core/tests
+      - name: Harness configuration
+        run: python -B agent-core/scripts/check_agent_config.py
+      - name: Release tree and zip round trip
+        run: |
+          python -B agent-core/scripts/build_release.py --output "$RUNNER_TEMP/v4.zip"
+          python -B agent-core/scripts/build_release.py --verify-zip "$RUNNER_TEMP/v4.zip"
+      - name: Install into a fresh repository
+        run: |
+          target="$RUNNER_TEMP/fresh"
+          mkdir -p "$target" && git -C "$target" init -q
+          python -B install/apply.py --target "$target" --apply --create-project-template
+          cd "$target"
+          python -B agent-core/scripts/bootstrap_project.py --write
+          python -B agent-core/scripts/check_agent_config.py
+          python -B agent-core/scripts/doctor.py --repo-only --strict
