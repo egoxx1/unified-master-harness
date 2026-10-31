@@ -198,6 +198,7 @@ class CodexHookProbeTests(unittest.TestCase):
         self.assertEqual({'command': ['bash', '-lc', 'ls']}, probe.call_arguments('shell', 'ls'))
 
 
+@unittest.skipUnless((ROOT/'bench/tasks.json').exists(), 'package-only bench tests')
 class BenchTaskTests(unittest.TestCase):
     def run_hidden(self, task: dict, tmp: str, reference: bool) -> tuple[int, int]:
         repo = Path(tmp) / 'p'

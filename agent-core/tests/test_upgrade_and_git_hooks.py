@@ -17,6 +17,7 @@ def run(cmd, cwd):
 
 
 class UpgradeTests(unittest.TestCase):
+    @unittest.skipUnless((ROOT / 'install/apply.py').exists(), 'package-only: a project manifest records the installed template')
     def test_template_manifest_is_current(self):
         # A stale manifest makes an unzipped template treat changed harness files as project edits on upgrade.
         import upgrade_harness
