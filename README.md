@@ -9,7 +9,7 @@ A shared operating harness for **Claude Code**, **Codex** and **Antigravity**, m
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#requirements)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#requirements)
-[![Version](https://img.shields.io/badge/version-4.3.2-2F4858.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.3.3-2F4858.svg)](CHANGELOG.md)
 
 **English** · [한국어](README.ko.md)
 
@@ -26,7 +26,8 @@ A shared operating harness for **Claude Code**, **Codex** and **Antigravity**, m
   stop skipping verification: with the harness they ran the tests in 169 of 170 runs, without it 158 of 170
   (p = 0.001), and left a regression test after 110/110 bug fixes versus 104/110 (p = 0.015).
 - **What it costs.** On Claude Opus 5.5, **+17.5%** per task over no harness; on Sonnet 5.5, **+2.8%** (within
-  noise). About half of the Opus overhead is Claude Code's own sandbox text.
+  noise). About half of the Opus overhead is Claude Code's own sandbox text; the sandbox is now off by default
+  (+8.4% measured), see [Choosing a configuration](#choosing-a-configuration).
 - **What it does not do.** On current models it did not make answers more correct: both sides were correct in
   every one of 100 Opus and 55 Sonnet runs, including four tasks built to favor the harness. Read the
   numbers below before deciding.
@@ -64,7 +65,7 @@ actually executes**:
 | Work-destroying commands | denied | denied | denied |
 | Secret files, publishing, harness edits | **asks you** | denied | denied |
 | Checks file tools, not just the shell | Read, Grep, **MCP tools** | `apply_patch` | **every tool** |
-| OS-level sandbox | ✓ writes limited to the project, secret reads blocked | ✓ workspace-write | — (none available) |
+| OS-level sandbox | off by default (opt-in: writes limited to the project) | ✓ workspace-write | — (none available) |
 | Bare interactive sessions (`bash`, `python3`, `psql` …) | checked per command | denied (input bypasses hooks) | checked per command |
 | Warning when an edit was never verified | ✓ Stop hook | — | — |
 | Memory across context compaction | ✓ PreCompact → SessionStart | — | — |
@@ -214,7 +215,7 @@ that decodes and executes a payload, and recursive `rm` whose targets come from 
 
 Writes to `AGENTS.md`, `CLAUDE.md`, the hooks, scripts, evals and provider configuration — from the shell,
 Codex `apply_patch`, Antigravity `edit_file`/`write_file` and write-type MCP tools. In Claude Code the edit
-tool asks for your approval, and the sandbox makes these files unwritable from the shell.
+tool and shell writes ask for your approval (with the opt-in sandbox, these files are also unwritable from the shell).
 </details>
 
 <details>
@@ -290,13 +291,15 @@ Measured on all ten tasks:
 
 | Configuration | Extra cost (Opus) | Verification | Claude-only safety checks | Recommended for |
 |---|:---:|---|:---:|---|
-| **Full harness (default)** | +17.5% | tests 90/90, regression tests 60/60 | **8/8** | Most repositories |
-| Sandbox off | +8.4% | tests 45/45, regression tests 30/30 | 6/8 | Low-risk repositories where token cost matters more |
+| Full harness, sandbox on | +17.5% | tests 90/90, regression tests 60/60 | **8/8** | Repositories where shell writes outside the project must be stopped |
+| **Sandbox off (default)** | +8.4% | tests 45/45, regression tests 30/30 | 6/8 | Most repositories; the sandbox blocked too much ordinary work |
 | No harness | — | tests 81/90, regression tests 55/60 | — | — |
 
 With the sandbox off the verification benefit stays, but writes outside the project and shell edits of the
 harness's own files are no longer stopped; only the hooks remain, and they read command text, not what a script
-does. To switch, set `"sandbox": {"enabled": false}` in `.claude/settings.json`. The default stays on.
+does. The default is off, with Bash, edits and web tools allowed without prompts (deny and ask rules still win).
+To turn the sandbox back on, set `"sandbox": {"enabled": true}` in `.claude/settings.json` and remove the
+broad `permissions.allow` rules if you want prompts again.
 
 ## Tooling
 
@@ -350,7 +353,7 @@ CLAUDE.md                 Claude Code adapter: imports AGENTS.md
 PROJECT.md                product truth (template; yours to write)
 START-HERE.md             first steps for a repository using the harness
 .agents/                  Antigravity mirror of AGENTS.md, hooks.json, canonical skills
-.claude/                  settings (hooks, permissions, sandbox), skills mirror, commands, dev-reviewer
+.claude/                  settings (hooks, permissions, sandbox off by default), skills mirror, commands, dev-reviewer
 .codex/                   config.toml (workspace-write sandbox), hooks.json
 agent-core/hooks/         policy.py and one adapter per CLI, block log, scope for a home-folder copy
 agent-core/scripts/       install, upgrade, doctor, smoke, probe, evals, growth engine, release

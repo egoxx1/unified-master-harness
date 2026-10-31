@@ -44,9 +44,13 @@ class SettingsTests(unittest.TestCase):
             self.assertTrue(any(rel in rule for rule in ask if rule.startswith('Edit(')), rel)
             self.assertTrue(any(rel in path for path in deny_write), rel)
 
-    def test_loose_sandbox_cannot_be_escaped(self):
+    def test_sandbox_off_by_default_and_ask_rules_still_apply(self):
+        # Off by default: the sandbox blocked too much ordinary work. Hooks, deny and ask rules remain;
+        # ask/deny rules take precedence over the broad allow rules.
         sandbox = self.s['sandbox']
-        self.assertTrue(sandbox['enabled'])
+        self.assertFalse(sandbox['enabled'])
+        self.assertIn('Bash', self.s['permissions']['allow'])
+        self.assertIn('Bash(git push *)', self.s['permissions']['ask'])
         self.assertFalse(sandbox['allowUnsandboxedCommands'], 'the retry escape hatch plus a user Bash(*) rule would bypass the sandbox')
         self.assertEqual(['*'], sandbox['network']['allowedDomains'])
         for excluded in sandbox['excludedCommands']:

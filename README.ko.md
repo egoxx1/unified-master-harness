@@ -9,7 +9,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)](#요구-사항)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)](#요구-사항)
-[![Version](https://img.shields.io/badge/version-4.3.2-2F4858.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-4.3.3-2F4858.svg)](CHANGELOG.md)
 
 [English](README.md) · **한국어**
 
@@ -26,7 +26,8 @@
   않게 됩니다. 하네스가 있으면 170회 중 169회 테스트를 돌렸고, 없으면 158회였습니다(p = 0.001). 버그 수정 뒤
   재발 방지 테스트는 110/110 대 104/110이었습니다(p = 0.015).
 - **비용.** Claude Opus 5.5에서는 하네스가 없을 때보다 과제당 **+17.5%**, Sonnet 5.5에서는 **+2.8%**(노이즈
-  범위)입니다. Opus 추가 비용의 약 절반은 Claude Code 자체의 샌드박스 설명입니다.
+  범위)입니다. Opus 추가 비용의 약 절반은 Claude Code 자체의 샌드박스 설명이라, 이제 샌드박스는 기본으로 꺼 둡니다
+  (측정값 +8.4%, 아래 "설정 고르기" 참고).
 - **하지 못하는 것.** 지금 모델에서는 정답률을 높이지 못했습니다. 하네스가 이기도록 만든 과제 4개를 포함해
   Opus 100회, Sonnet 55회 모두 양쪽이 다 맞았습니다. 도입 전에 아래 수치를 읽어 보세요.
 
@@ -60,7 +61,7 @@
 | 작업을 날리는 명령 | 거부 | 거부 | 거부 |
 | 비밀 파일, 배포, 하네스 수정 | **승인 요청** | 거부 | 거부 |
 | 셸 말고 파일 도구도 검사 | Read, Grep, **MCP 도구** | `apply_patch` | **모든 도구** |
-| OS 수준 샌드박스 | ✓ 쓰기는 프로젝트 안, 비밀 파일 읽기 차단 | ✓ workspace-write | — (제공되지 않음) |
+| OS 수준 샌드박스 | 기본 꺼짐 (켜면 쓰기는 프로젝트 안) | ✓ workspace-write | — (제공되지 않음) |
 | 빈 대화형 세션 (`bash`, `python3`, `psql` …) | 명령마다 검사 | 거부 (입력이 hook을 우회) | 명령마다 검사 |
 | 검증 없이 끝낸 편집 경고 | ✓ Stop hook | — | — |
 | 대화 압축 뒤에도 작업 기억 | ✓ PreCompact → SessionStart | — | — |
@@ -205,8 +206,8 @@ Firebase, Wrangler …), `terraform apply`, `kubectl apply`, `helm upgrade`, `do
 <summary><b>하네스 자체 수정</b></summary>
 
 `AGENTS.md`, `CLAUDE.md`, hook, 스크립트, 평가, CLI 설정에 쓰는 것. 셸, Codex `apply_patch`, Antigravity
-`edit_file`/`write_file`, 쓰기 계열 MCP 도구 모두 해당합니다. Claude Code에서는 편집 도구가 승인을 묻고,
-샌드박스 때문에 셸에서는 이 파일들을 쓸 수 없습니다.
+`edit_file`/`write_file`, 쓰기 계열 MCP 도구 모두 해당합니다. Claude Code에서는 편집 도구와 셸 쓰기가 승인을 묻습니다
+(샌드박스를 켜면 셸에서는 이 파일들을 아예 쓸 수 없습니다).
 </details>
 
 <details>
@@ -280,13 +281,14 @@ Opus 추가 비용은 Claude Code 샌드박스(턴마다 고정 설명 약 2,900
 
 | 설정 | 추가 비용 (Opus) | 검증 | Claude 전용 안전 검사 | 권장 |
 |---|:---:|---|:---:|---|
-| **전체 하네스 (기본값)** | +17.5% | 테스트 90/90, 재발 방지 테스트 60/60 | **8/8** | 대부분의 저장소 |
-| 샌드박스 끔 | +8.4% | 테스트 45/45, 재발 방지 테스트 30/30 | 6/8 | 토큰 비용이 더 중요한 저위험 저장소 |
+| 전체 하네스, 샌드박스 켬 | +17.5% | 테스트 90/90, 재발 방지 테스트 60/60 | **8/8** | 프로젝트 밖 셸 쓰기를 반드시 막아야 하는 저장소 |
+| **샌드박스 끔 (기본값)** | +8.4% | 테스트 45/45, 재발 방지 테스트 30/30 | 6/8 | 대부분의 저장소. 샌드박스가 평범한 작업까지 너무 많이 막았음 |
 | 하네스 없음 | — | 테스트 81/90, 재발 방지 테스트 55/60 | — | — |
 
 샌드박스를 끄면 검증 이점은 그대로지만, 프로젝트 밖 쓰기와 셸로 하네스 파일을 고치는 것을 더는 막지 못합니다.
-남는 것은 hook뿐이고, hook은 명령어 문자열을 읽을 뿐 스크립트가 무엇을 하는지는 보지 못합니다. 바꾸려면
-`.claude/settings.json`에서 `"sandbox": {"enabled": false}`로 설정하세요. 기본값은 켜 둔 상태입니다.
+남는 것은 hook뿐이고, hook은 명령어 문자열을 읽을 뿐 스크립트가 무엇을 하는지는 보지 못합니다. 기본값은 꺼짐이고,
+Bash·편집·웹 도구는 묻지 않고 실행됩니다(deny·ask 규칙이 우선). 다시 켜려면 `.claude/settings.json`에서
+`"sandbox": {"enabled": true}`로 바꾸고, 다시 묻게 하려면 넓은 `permissions.allow` 규칙을 지우세요.
 
 ## 도구
 
@@ -340,7 +342,7 @@ CLAUDE.md                 Claude Code 어댑터: AGENTS.md를 불러옴
 PROJECT.md                제품 기준 (템플릿, 직접 작성)
 START-HERE.ko.md          하네스를 쓰는 저장소의 첫 단계 안내
 .agents/                  Antigravity용 AGENTS.md 사본, hooks.json, 원본 스킬
-.claude/                  설정(hook, 권한, 샌드박스), 스킬 사본, 명령, dev-reviewer
+.claude/                  설정(hook, 권한, 기본 꺼진 샌드박스), 스킬 사본, 명령, dev-reviewer
 .codex/                   config.toml (workspace-write 샌드박스), hooks.json
 agent-core/hooks/         policy.py와 CLI별 어댑터, 차단 기록, 홈 폴더 사본용 scope
 agent-core/scripts/       설치, 업그레이드, doctor, smoke, probe, 평가, 성장 엔진, 릴리스

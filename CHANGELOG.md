@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.3.3 — 2026-10-31
+
+Permissions:
+
+- **Claude Code sandbox off by default; routine prompts removed.** The sandbox blocked too much ordinary work
+  and its fixed text was about half of the Opus overhead (measured: +17.5% with it, +8.4% without, same
+  verification). `.claude/settings.json` now has `sandbox.enabled: false` and `allow` rules for `Bash`, `Edit`,
+  `Write`, `WebFetch` and `WebSearch`. Secret-read deny rules, push/publish and harness-edit ask rules and the
+  PreToolUse hook stay; deny and ask rules take precedence over allow. Without the sandbox, writes outside the
+  project and shell writes to harness files that the hook cannot read from the command text (for example
+  `python3 -c "open('AGENTS.md','w')"`) are no longer stopped. Set `sandbox.enabled: true` to restore them.
+- `provider_smoke.py`: the Claude layer drops its two sandbox-only checks (h, j) when the sandbox is off.
+
+Tests:
+
+- The bench task tests and the template-manifest test now skip in installed projects, which have no `bench/`
+  and record their installed template in the manifest; every project upgraded to 4.3.2 failed them in CI.
+
 ## 4.3.2 — 2026-10-31
 
 Safety:

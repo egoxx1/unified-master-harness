@@ -197,6 +197,8 @@ def claude_layer(args) -> dict:
         'l-stop-warning-after-unverified-edit': (fixture / 'src/v4_probe.py').exists() and any(e.get('kind') == 'verification' for e in log),
         'm-session-brief-injected': TASK_MARKER in output,
     }
+    if not settings.get('sandbox', {}).get('enabled'):  # only the sandbox stops these two; off by default
+        del checks['h-write-outside-project-blocked'], checks['j-shell-cannot-edit-harness']
     outcome = {'result': 'PASS' if all(checks.values()) else 'FAIL', 'checks': checks, 'seconds': round(time.time() - started)}
     if any(m in output.lower() for m in UNAVAILABLE_MARKERS) and not log:
         outcome['result'] = 'UNAVAILABLE'

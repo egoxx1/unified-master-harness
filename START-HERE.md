@@ -36,11 +36,11 @@ non-negotiables. Agents judge product trade-offs against it.
 
 `.claude/settings.json` turns on enforcement that only Claude Code supports.
 
-- **Sandbox (loose):** shell commands may write only inside this project, temp folders and package
-  caches (`~/.npm`, `~/.cache`, ...). Network is open. If a tool must write elsewhere, add the path to
-  `sandbox.filesystem.allowWrite`. Retrying outside the sandbox is disabled.
-- **Secret files:** Claude cannot read `.env`, key files and similar (the OS also blocks `cat .env`
-  from the shell). `.env.example` stays readable. Open secrets yourself when you need them.
+- **Permissions (loose):** the sandbox is off by default; shell commands, file edits and web tools run
+  without prompts. Push/publish and harness edits still ask, and the hook still denies work-destroying
+  commands. To confine shell writes to the project, set `sandbox.enabled` to `true`.
+- **Secret files:** Claude cannot read `.env`, key files and similar (`cat .env` from the shell
+  asks through the hook). `.env.example` stays readable. Open secrets yourself when you need them.
 - **Harness protection:** editing `AGENTS.md`, `CLAUDE.md`, `agent-core/hooks|scripts|evals`, `.codex`
   or `.agents` asks for approval, and the shell cannot write them at all. Run harness maintenance
   (`sync_agent_config.py`, `upgrade_harness.py`, `install_git_hooks.py`) **in your own terminal**.

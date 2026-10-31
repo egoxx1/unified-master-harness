@@ -4,8 +4,8 @@
 
 The hooks block a defined set of dangerous commands, secret-file reads, external actions and writes
 to the harness itself, on Claude Code, Codex and Antigravity. It is a narrow guard, not a shell
-firewall: known gaps are listed in `docs/VERIFICATION-REPORT.md`. The Claude Code sandbox and the
-Codex workspace sandbox add OS-level limits; Antigravity has no sandbox layer in V4.
+firewall: known gaps are listed in `docs/VERIFICATION-REPORT.md`. The Codex workspace sandbox adds OS-level limits;
+the Claude Code sandbox is off by default and adds them only when enabled; Antigravity has no sandbox layer in V4.
 
 Do not keep production secrets in files an agent can reach. Inject them at run time from a secret
 manager or keychain.

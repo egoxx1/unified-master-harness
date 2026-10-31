@@ -32,9 +32,9 @@ python3 agent-core/scripts/codex_hook_probe.py   # Codex hook만, 계정·사용
 
 `.claude/settings.json`이 Claude Code에만 있는 강제 장치를 켭니다.
 
-- **샌드박스(느슨한 설정):** 셸 명령은 이 프로젝트 폴더, 임시 폴더, 패키지 캐시(`~/.npm`, `~/.cache` 등)에만 쓸 수 있습니다. 네트워크는 열려 있습니다.
-  다른 위치에 써야 하는 도구가 있으면 `sandbox.filesystem.allowWrite`에 경로를 추가하세요. 샌드박스 밖 재시도는 막혀 있습니다.
-- **비밀 파일:** Claude는 `.env`, 키 파일 등을 읽을 수 없습니다(셸의 `cat .env`도 OS가 막음). `.env.example`은 읽을 수 있습니다. 비밀값이 필요하면 직접 열어 보세요.
+- **권한(널널한 설정):** 샌드박스는 기본으로 꺼져 있고, 셸 명령·파일 편집·웹 도구는 묻지 않고 실행됩니다. push/publish와 하네스 파일 수정은 여전히 승인을 묻고,
+  작업을 날리는 명령은 hook이 막습니다. 셸 쓰기를 프로젝트 안으로 묶고 싶으면 `sandbox.enabled`를 `true`로 바꾸세요.
+- **비밀 파일:** Claude는 `.env`, 키 파일 등을 읽을 수 없습니다(셸의 `cat .env`는 hook이 승인을 물음). `.env.example`은 읽을 수 있습니다. 비밀값이 필요하면 직접 열어 보세요.
 - **하네스 보호:** `AGENTS.md`, `CLAUDE.md`, `agent-core/hooks·scripts·evals`, `.codex`, `.agents`는 Claude가 고치려 하면 승인을 묻고, 셸로는 아예 못 고칩니다.
   그래서 하네스 관리 명령(`sync_agent_config.py`, `upgrade_harness.py`, `install_git_hooks.py`)은 **직접 터미널에서** 실행하세요.
 - **검증 경고:** 코드를 고친 뒤 테스트·빌드·실행 확인 없이 Claude가 작업을 끝내면 "V4 verification warning"이 뜹니다. 막지는 않습니다. 경고가 보이면 검증을 요청하세요.
