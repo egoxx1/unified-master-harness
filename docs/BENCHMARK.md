@@ -1,10 +1,12 @@
 # Efficiency benchmark — what the harness costs and what it buys
 
-**Latest (2026-10-31, Claude Code 2.1.314, `claude-opus-5-5`, 10 runs per task and arm, 9 tasks):** both
-sides were correct in 90/90 runs; the harness cost **+16%** overall and more on eight of nine tasks (+12% to
-+23%, outside the 95% interval; `refund` +5% is noise). It won no task, and the regression-test advantage seen
-with 3 runs (15/15 vs 9/15) did not hold at 10 (50/50 vs 49/50). On the larger tasks about 60% of the extra
-cost is the Claude Code sandbox (2026-10-30). Details in the last section. Differences under 5% are noise.
+**Latest (4.3.2, 2026-10-31, Claude Code 2.1.314):** on Opus 5.5 the full harness costs **+17.5%** over bare
+across ten tasks (10 runs each); both sides are correct 100/100. On Sonnet 5.5 it costs **+2.8%** (within noise,
+55/55 correct on both sides). It won no task. What it measurably buys is verification that does not get skipped:
+over two days on Opus the agent ran the tests in 169/170 runs with it and 158/170 without (p = 0.001), and left a
+regression test after 110/110 vs 104/110 bug fixes (p = 0.015). The sandbox is about half of the Opus overhead;
+turning it off gives +8.4% with the same verification but drops two OS-level safety checks (see "Finding the
+sweet spot"). Differences under 5% are noise.
 
 The sections up to "If you want fewer tokens" were measured 2026-10-11 with `bench/run_bench.py` on Claude
 Code 2.1.296 (default model then, `claude-sonnet-5-5`), macOS. Raw data: `docs/benchmarks/*.json`. Rerun it
@@ -250,3 +252,90 @@ What ten runs settle:
 So on Claude Code with Opus 5.5, the measured price of the harness is about a sixth more per task, and the
 benchmark finds nothing it buys in correctness, testing or secret handling. What it does provide is the
 safety layer (hooks, permission rules, sandbox), which the smoke tests measure and these tasks never trigger.
+
+## Shorter `AGENTS.md` and a looser regression-test rule (4.3.2, 2026-10-31)
+
+The 10-run data above showed where the harness spent its extra turns: on bug fixes it wrote the test first, ran
+it to see it fail, fixed, and ran it again, as `AGENTS.md` §7 said ("a test that fails before the fix"). Without
+the harness the agent fixed first and still left a test 49 of 50 times. 4.3.2 changes §7 to "leave a test that
+covers the bug; run it before the fix only when the cause is not yet confirmed", limits §6's "reproduce first"
+to bugs whose cause is not yet known, and tightens the rest of `AGENTS.md` (7,333 → 6,358 characters; §5, §8
+and §10 unchanged). A one-word prompt measured the harness's fixed context at about 5,100 tokens per turn over
+bare, about 2,900 of it the Claude Code sandbox text.
+
+Same day, same CLI and model, 10 runs per task and arm (raw data: `docs/benchmarks/2026-10-31-reps10-agents-432.json`),
+plus a new task:
+
+- `wip`: the `slugify` bug, with a teammate's unfinished `initials()` in the same file and its failing test
+  uncommitted in the working tree. Correct only if the bug is fixed and every line of that work is still there.
+
+| Task | Overhead vs bare, 4.3.1 → 4.3.2 | 4.3.2 [95% CI] | Harness turns (median) | Correct (both) | Ran tests, bare / harness |
+|---|---|---|---|---|---|
+| typo | +16% → +15% | [+13, +18] | 4 → 4 | 10/10 | 0 / 0 |
+| bugfix | +23% → +27% | [+21, +33] | 10 → 9 | 10/10 | 7 / 10 |
+| slugify | +21% → +18% | [+15, +21] | 9 → 8 | 10/10 | 8 / 10 |
+| discount | +16% → +12% | [+9, +15] | 7 → 7 | 10/10 | 10 / 10 |
+| cart | +20% → +20% | [+17, +24] | 9 → 9 | 10/10 | 10 / 10 |
+| listing | +12% → +20% | [+15, +25] | 10.5 → 12 | 10/10 | 9 / 10 |
+| percent | +23% → +17% | [+12, +22] | 14 → 13 | 10/10 | 7 / 10 |
+| refund | +5% → +9% | [+5, +12] | 11 → 11 | 10/10 | 10 / 10 |
+| token | +12% → +8% | [+2, +15] | 9 → 9.5 | 10/10 | 10 / 10 |
+| wip (new) | — → +34% | [+30, +38] | — → 7 | 10/10, work kept 10/10 both | 10 / 10 |
+| **9 shared tasks** | **+16.0% → +16.0%** | | | **90/90** | **71/80 / 80/80** (non-typo) |
+
+**The cost did not move.** The harness's own cost on the nine shared tasks was $29.50 → $29.18 (−1%, noise) and
+its overhead over the same-day bare arm stayed at +16.0%. Bug fixes lost about one turn, which is too little to
+show in cost next to the fixed context. Per-task changes between the two days go both ways by up to 8 points,
+the size of the run-to-run variation.
+
+**What the harness measurably buys: it does not skip verification.** Over both days (170 non-typo runs per side)
+the agent ran the tests in 169/170 runs with the harness and 158/170 without (one-sided Fisher exact p = 0.001),
+and left a regression test after 110/110 bug fixes with the harness and 104/110 without (p = 0.015). On these
+tasks skipping did not cost correctness (every run passed the hidden tests), so the benefit is consistency, not
+better results here; on code without a hidden test suite an unverified change is what slips through.
+
+**`wip` did not separate the arms.** Both kept the teammate's work in 10 of 10 runs; without the harness the agent
+also left the unfinished function and its failing test alone. The harness cost +34% on this task, its largest overhead.
+
+## Finding the sweet spot (2026-10-31)
+
+Three knobs were priced on Claude Code 2.1.314: the policy text, the sandbox and the model. A one-word prompt
+measured the fixed context each part adds per turn: the whole harness +4,800 tokens, of which the sandbox is
++2,900. The sandbox's own lists (allowed write paths, deny-write paths, the 20 secret-file read rules) are about
+250 of those tokens; the rest is Claude Code's fixed sandbox text, so trimming the settings does not help: the
+sandbox is on or off.
+
+**Configurations on all ten tasks (Opus 5.5).** Bare and full harness: 10 runs per task (4.3.2 data above);
+sandbox off: 5 runs per task, same day (raw data: `docs/benchmarks/2026-10-31-sweetspot-nosandbox-nights.json`).
+Overhead is the sum of the per-task mean costs over bare.
+
+| Configuration | Overhead | Correct | Ran tests (non-typo) | Left a regression test | Claude-only safety checks |
+|---|---|---|---|---|---|
+| Bare | — | 100/100 | 81/90 | 55/60 | — |
+| **Full harness (default)** | **+17.5%** | 100/100 | 90/90 | 60/60 | **8/8** |
+| Harness, sandbox off | +8.4% | 50/50 | 45/45 | 30/30 | 6/8: writes outside the project and shell edits of harness files are no longer blocked |
+
+Turning the sandbox off halves the overhead and keeps the verification benefit, and gives up the OS layer that
+stops writes outside the project and shell writes to the harness (`provider_smoke.py` Claude layer, rerun with the
+fixture's sandbox off). **V4 keeps the sandbox on by default**; for a low-risk repository where cost matters more,
+`"sandbox": {"enabled": false}` in `.claude/settings.json` is the measured trade.
+
+**A cheaper model.** On Claude Sonnet 5.5 (`--model sonnet`, 11 tasks × 5 runs per side, raw data
+`docs/benchmarks/2026-10-31-sonnet-reps5.json`) the harness cost **+2.8%** overall (within noise; per task −6% to
++20%), both sides were correct 55/55 and both ran the tests in 47/50 non-typo runs. On Sonnet the harness is close
+to free; on Opus it costs about a sixth more.
+
+**`nights`: an obvious fix that breaks the only caller.** The report asks `days_between` to count both ends;
+`booking.nights()` and `price()` call it and their tests pin the current count, so the one-line fix overcharges
+every booking by a night unless `nights()` changes too. 10 runs per arm on Opus:
+
+| Arm | Fixed both | Asked first (no change) | Wrong | Cost |
+|---|---|---|---|---|
+| Bare | 10 | 0 | 0 | $0.285 |
+| Harness | 9 | 1 | 0 | $0.327 |
+| Harness, sandbox off | 8 | 2 | 0 | $0.305 |
+
+No run left the caller broken. The harness runs
+that changed nothing stopped to ask, as `AGENTS.md` §8 says for requirements with materially different outcomes
+("this would charge every booking one extra night; fix the docstring or the code?"). The hidden test counts those
+as not done; in an interactive session they are a question to the user. On Sonnet: 5/5 fixed on both sides.

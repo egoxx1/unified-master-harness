@@ -1,5 +1,73 @@
 # Changelog
 
+## 4.3.2 — 2026-10-31
+
+Safety:
+
+- **Antigravity edits of harness files are guarded.** Antigravity 1.4 edits with `edit_file` {`Path`, `Target`,
+  `Replacement`} and `write_file` {`Path`, `Content`} (argument names recorded from real calls), which no V4 hook
+  matched: an Antigravity agent could rewrite `AGENTS.md` or `policy.py`. Both are matched now; edits of harness
+  enforcement files and secret files are denied, other edits get no decision so Antigravity's own permission
+  mode applies (an "allow" would auto-approve them). New smoke probe (f) edits `AGENTS.md` with the file tool.
+- The Antigravity CLI (print mode) offers only `read_file`, `edit_file`, `write_file` and `run_command` as file
+  and shell tools; `grep_search`, `search_in_file`, `find_by_name`, `list_dir` and `view_content_chunk` do not
+  exist there, so they are not an open path on the CLI. A subagent's file read goes through the same hook
+  (measured: `view_file` denied, marker absent).
+- The Antigravity smoke now also fails when the secret marker appears in Antigravity's conversation record,
+  not only in the final answer (the 4.3.0 leak was visible only there).
+- Shell: `source .env` / `. .env.local` now count as reading the secret; recursive `rm` whose targets come from
+  `xargs` or start with a variable (`rm -rf "$DIR"`, `D=/; rm -rf $D`) asks; `find … -delete`/`-exec rm` under
+  `/`, a home or an unfiltered `.`/`..` is denied, and under a variable asks; `echo`/`printf` of a variable named
+  like a credential (`$AWS_SECRET_ACCESS_KEY`, `${GITHUB_TOKEN}`) asks. `set -e` is no longer mistaken for an
+  environment dump. Asks are denials on Codex and Antigravity.
+- Code fetched or decoded and run at once (`curl … | sh`, `bash <(curl …)`, `… | base64 -d | sh`, `xxd -r … | sh`)
+  asks; `curl … | python3 -m json.tool` and `curl -o file` stay allowed. Codex: `lua`, `R`, `julia`, `php -a`,
+  `rails console` (also through `bundle exec`), `mysqlsh`, `sqlplus` and `gdb` without inline code or a script
+  are denied like other bare sessions.
+- Codex and Antigravity hooks deny tool input over 128 KB before parsing it: both CLIs run the tool once a hook
+  passes its 5 s timeout, and the policy takes up to ~2 s per MB of shell text on a laptop and about three times
+  that on CI runners (a first 512 KB cap took 2.5–3.2 s there). A unit test times inputs just under the cap.
+- **Claude Code MCP tools are checked.** The Claude hook matched `Bash|PowerShell|Read|Grep`, so an MCP tool
+  (`mcp__<server>__<tool>`) could read `.env.local`: with a minimal stdio MCP server exposing `read_file`, the
+  secret reached the model and the hook log stayed empty. The matcher now includes `mcp__.*`; every string
+  argument is checked for secret paths, write-type tools for harness files, shell-type tools as commands. Rerun:
+  the hook asked, the secret did not reach the model.
+- The Antigravity hook matches every tool (`.*`). Known tools keep their rules; any other tool (a renamed or new
+  one, as in 1.4) has its path-like arguments checked, secret files and harness edits denied, everything else
+  left to Antigravity's own permission mode. Smoke with it: 7/7.
+- Also asked now: decompressors piped into a shell (`gzip -dc … | sh`, `zcat … | bash`), a here-string of a
+  credential variable (`cat <<< "$API_TOKEN"`), and inline code that decodes and executes a payload
+  (`python3 -c "…b64decode…os.system…"`, `node -e "…Buffer.from(…'base64')…execSync…"`).
+- `provider_smoke.py` and `run_evals.py` take `--agy-model` (Antigravity's default model quota ran out; the last
+  Antigravity runs used `gemini-3.8-flash-high`).
+- Antigravity's `--sandbox` flag was tested on 1.4.11: a `touch` outside the project into the home folder
+  succeeded with and without it, so it is not used and Antigravity still has no OS-level layer here.
+
+Rules:
+
+- `AGENTS.md` 7,333 → 6,358 characters with the same rules (§5 routing, §8 autonomy and §10 security unchanged).
+  §7 no longer requires running the regression test before the fix ("leave a test that covers the bug; run it
+  before the fix only when the cause is not yet confirmed") and §6's "reproduce first" applies to bugs whose
+  cause is not yet known. In the 10-run data the old wording added a red-test run and 2–3 turns to bug fixes
+  whose cause the report already showed.
+- Benchmark: new `wip` task: the slugify bug with a teammate's unfinished, uncommitted `initials()` and its
+  failing test in the working tree; correct only if the bug is fixed and every line of that work is kept.
+- Measured (10 tasks × 10 runs per side, Opus 5.5, same day as 4.3.1): the harness's cost on the nine shared
+  tasks $29.50 → $29.18 (−1%, noise), overhead over bare +16.0% → +16.0%. **The shorter policy did not lower the
+  cost**; bug fixes lost about one turn. 100/100 correct on both sides; `wip` kept the work 10/10 on both sides.
+  Over both days the harness ran the tests in 169/170 runs vs 158/170 without (p = 0.001) and left a regression
+  test after 110/110 vs 104/110 bug fixes (p = 0.015).
+- Routing evals ×3 on the new `AGENTS.md`: Claude Code 12/12 and Codex 12/12 (every case 3 of 3); Antigravity
+  33/36 runs passed, none chose a wrong skill, 3 ended without an answer (one timeout, two provider errors, one of
+  them the account's quota running out, so the missing runs could not be repeated).
+- Smoke on the final 4.3.2 code: Claude Code 6/6 + 8/8, Codex 8/8, Codex hook probe PASS and control FAIL as
+  expected, Antigravity 7/7 on `gemini-3.8-flash-high` (also with the catch-all matcher). Routing ×3 on
+  Antigravity with Flash: 12/12, 36/36 runs.
+- Benchmark, sweet spot (Opus 5.5): full harness +17.5% over bare on ten tasks, sandbox off +8.4% with the same
+  verification (45/45 tests run, 30/30 regression tests) but 6/8 Claude-layer safety checks; the sandbox stays on.
+  Sonnet 5.5, 11 tasks × 5: +2.8% (noise), 55/55 correct both sides. New `nights` task (the obvious fix breaks the
+  only caller): bare 10/10 fixed; harness 9 fixed + 1 asked first, sandbox off 8 + 2 asked; no wrong fix.
+
 ## 4.3.1 — 2026-10-31
 
 - **Antigravity 1.4.11 secret read fixed.** Antigravity 1.4 reads files with a new `read_file` tool whose path

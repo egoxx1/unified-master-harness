@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-POLICY_VERSION = '4.3.1'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
+POLICY_VERSION = '4.3.2'  # read by scope.py so a global copy can defer to an equal-or-newer project copy
 
 SAFE_ENV_NAMES = {'.env.example', '.env.sample', '.env.template', '.env.defaults'}
 SENSITIVE_BASENAMES = {
@@ -37,7 +37,9 @@ SENSITIVE_PATH_SUFFIXES = ('.kube/config', '.docker/config.json', '.config/gh/ho
 SENSITIVE_SUFFIXES = ('.pem', '.key', '.p12', '.pfx')
 
 # Programs that only test/list a path or load it into the shell without printing it.
-PATH_META_PROGRAMS = {'ls', 'test', '[', '[[', 'stat', 'source', '.'}
+PATH_META_PROGRAMS = {'ls', 'test', '[', '[[', 'stat'}  # `source`/`.` load the file's contents, so they are not here
+# A variable whose name says it holds a credential; printing it shows the secret even when no file is named.
+SECRET_VARIABLE = re.compile(r'\$\{?[A-Za-z0-9_]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API_?KEY|PRIVATE_?KEY|ACCESS_?KEY|CREDENTIAL)[A-Za-z0-9_]*', re.I)
 SHELLS = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish'}
 WRAPPERS = {'sudo', 'command', 'builtin', 'nohup', 'nice', 'timeout', 'time', 'stdbuf', 'noglob', 'xargs', 'env'}
 WRAPPER_VALUE_FLAGS = {
@@ -103,6 +105,22 @@ SESSION_VALUE_FLAGS = {'bash': {'-o', '+o', '-O', '+O'}, 'zsh': {'-o', '+o'}, 's
                        'irb': {'-r', '-I'}, 'ghci': {'-i', '-package'},
                        'ssh': {'-B', '-b', '-c', '-D', '-E', '-e', '-F', '-I', '-i', '-J', '-L', '-l', '-m', '-O', '-o',
                                '-p', '-Q', '-R', '-S', '-W', '-w'}}
+# REPLs that take their code inline with these flags; without them (and without a script) they wait for input.
+REPL_INLINE = {'lua': {'-e'}, 'julia': {'-e', '-E', '--eval', '--print'}, 'R': {'-e', '-f', '--file'},
+               'mysqlsh': {'-e', '--execute', '-f', '--file'}}
+RAILS_CONSOLE = {'console', 'c', 'dbconsole', 'db'}
+# Code fetched from the network or decoded at runtime and run at once: the guard never sees what runs.
+FETCH_TO_INTERPRETER = re.compile(
+    r'\b(?:curl|wget|base64\s+(?:-d|-D|--decode)|xxd\s+-r|openssl\s+(?:base64|enc)\b[^|]*\s-d'
+    r'|g?unzip|[gbx]?zcat|zstdcat|(?:gzip|bzip2|xz|zstd)\s+(?:-\w*d\w*|--decompress))\b[^|;&]*\|\s*(?:sudo\s+)?'
+    r'(?:sh|bash|zsh|dash|ksh|python(?:3(?:\.\d+)?)?|node|perl|ruby)'
+    r'(?:\s+(?!-[cmeEp]\b)-\S*)*(?:\s+--(?:\s[^|;&>]*)?)?\s*(?:\d*>[^|;&]*)?(?:$|[;&|)])')  # runs stdin as code; `python3 -m json.tool` reads data
+FETCH_SUBSTITUTION = re.compile(r'(?:\$\(|<\(|`)\s*(?:curl|wget)\b')
+# Inline code that decodes a payload and executes it: what runs is not in the command text.
+DECODE_CALL = re.compile(r'b64decode|base64\.decode|decodebytes|atob\(|Buffer\.from\([^)]*base64|unhexlify|fromhex|decode\([\'"](?:hex|base64)|unpack\(["\']m', re.I)
+EXEC_SINK = re.compile(r'\bexec\(|\beval\(|os\.system|os\.popen|subprocess|child_process|execSync|\bsystem\(|new Function|`', re.I)
+INLINE_CODE = re.compile(r'(?:^|[;&|(]\s*)(?:sudo\s+)?(?:python(?:3(?:\.\d+)?)?\s+-c|node\s+(?:-e|--eval)|perl\s+-e|ruby\s+-e)\s')
+INTERPRETER_CALL = re.compile(r'(?:^|[;&|(]\s*)(?:sudo\s+)?(?:sh|bash|zsh|dash|ksh|python(?:3(?:\.\d+)?)?|node|perl|ruby|eval|source|\.)\s')
 SSH_NO_SHELL = {'-N', '-W', '-O', '-G', '-Q', '-V'}  # forwarding, control and query modes start no remote shell
 INTERACTIVE_MODULES = {'code', 'pdb', 'IPython', 'idlelib', 'asyncio'}
 NODE_RUN_FLAGS = {'--test', '--watch', '--run', '--check', '--eval', '--print', '-c'}
@@ -295,7 +313,7 @@ def _catastrophic_target(target: str) -> bool:
 
 def _broad_env_dump(command: str) -> bool:
     low = command.strip().lower()
-    shell_dump = re.search(r'(^|[;&|]\s*)(env|printenv|set|export\s+-p)(?:\s|$|[|;&])', low)
+    shell_dump = re.search(r'(^|[;&|]\s*)(?:(?:env|printenv|export\s+-p)(?:\s|$|[|;&])|set\s*(?:$|[|;&]))', low)  # `set -e` is not a dump
     env_wrapper = re.search(r'(^|[;&|]\s*)env\s+[a-z_][a-z0-9_]*=', low)
     if shell_dump and not env_wrapper:
         return True
@@ -404,12 +422,19 @@ def _harness_write(program: str, tokens: list[str], raw: str) -> str:
     return ''
 
 
+def _variable_target(target: str) -> bool:
+    """A path whose start comes from a variable or substitution; empty or unset, it can mean `/`."""
+    return target.startswith(('$', '`')) and not re.match(r'\$\{?HOME\}?(?:/|$)', target)
+
+
 def _classify_segment(tokens: list[str], depth: int) -> Verdict:
+    original = list(tokens)
     tokens = _unwrap(tokens)
     if not tokens:
         return ALLOW
     program = Path(tokens[0]).name
     text = ' '.join(tokens)
+    from_stdin = any(Path(t).name == 'xargs' for t in original[:len(original) - len(tokens)])
 
     if program in SHELLS or program == 'eval':
         if program == 'eval':
@@ -426,6 +451,21 @@ def _classify_segment(tokens: list[str], depth: int) -> Verdict:
     if program == 'rm' and _rm_is_recursive_force(tokens):
         if any(_catastrophic_target(t) for t in _rm_targets(tokens)):
             return _destructive('Blocked broad recursive forced deletion of root/current/parent/home/wildcard target.')
+    if program == 'rm' and any(t == '--recursive' or (t.startswith('-') and not t.startswith('--') and set(t[1:]) & {'r', 'R'})
+                               for t in tokens[1:]):
+        if from_stdin:
+            return Verdict('ask', 'Recursive rm with targets from stdin (xargs) cannot be checked; needs explicit user approval.', 'destructive')
+        if any(_variable_target(t) for t in _rm_targets(tokens)):
+            return Verdict('ask', 'Recursive rm of a path built from a variable cannot be checked; needs explicit user approval.', 'destructive')
+    if program == 'find' and any(t in {'-delete', '-exec', '-execdir', '-ok'} for t in tokens[1:]) \
+            and (t := next((a.strip("\"'") for a in tokens[1:] if not a.startswith(('-', '(', '!'))), '')):
+        if any(a in {'-delete'} or a in {'rm', '/bin/rm'} for a in tokens[1:]):
+            filtered = any(a in {'-name', '-iname', '-path', '-ipath', '-regex', '-iregex', '-wholename', '-newer', '-mtime', '-mmin'}
+                           for a in tokens[1:])
+            if _catastrophic_target(t) and not (filtered and t.rstrip('/') in {'.', '..'}):
+                return _destructive('Blocked find that deletes everything under the current/parent directory, or under a root or home.')
+            if _variable_target(t):
+                return Verdict('ask', 'find deleting under a path built from a variable needs explicit user approval.', 'destructive')
 
     protected = _harness_write(program, tokens, text)
     if protected:
@@ -445,6 +485,9 @@ def _classify_segment(tokens: list[str], depth: int) -> Verdict:
             if embedded:
                 return _sensitive(f'Command references sensitive file {embedded}, which may expose credentials.')
 
+    if program in {'echo', 'printf', 'print'} and any(SECRET_VARIABLE.search(a) for a in original):
+        return _sensitive('Printing a credential variable exposes its value.')
+
     external = _external_action(program, tokens)
     if external:
         return _external(external)
@@ -461,6 +504,13 @@ def classify_command(command: str, depth: int = 0) -> Verdict:
     verdict = ALLOW
     if _broad_env_dump(command):
         verdict = _destructive('Blocked broad environment dump because it can expose credentials.')
+    if INLINE_CODE.search(command) and DECODE_CALL.search(command) and EXEC_SINK.search(command):
+        verdict = _worst(verdict, _external('Inline code that decodes a payload and executes it cannot be checked first.'))
+    if '<<<' in command and SECRET_VARIABLE.search(command.split('<<<', 1)[1]):
+        verdict = _worst(verdict, _sensitive('A here-string of a credential variable exposes its value.'))
+    if FETCH_TO_INTERPRETER.search(command) or (FETCH_SUBSTITUTION.search(command) and INTERPRETER_CALL.search(command)):
+        verdict = _worst(verdict, _external('Running code fetched from the network or decoded at runtime cannot be checked '
+                                            'first; download it to a file, read it, then run the file.'))
     for segment in _segments(command):
         verdict = _worst(verdict, _classify_segment(segment, depth))
         if verdict.action == 'deny':
@@ -581,6 +631,8 @@ def interactive_session(command: str, depth: int = 0) -> str:
         tokens = _unwrap(tokens)
         if tokens and tokens[0] == 'exec':
             tokens = _unwrap(tokens[1:])
+        if len(tokens) > 2 and Path(tokens[0]).name == 'bundle' and tokens[1] == 'exec':
+            tokens = tokens[2:]
         while len(tokens) > 1 and Path(tokens[0]).name in RUNNERS and tokens[1] == 'run':
             rest = tokens[2:]
             while rest and rest[0].startswith('-'):
@@ -638,6 +690,24 @@ def interactive_session(command: str, depth: int = 0) -> str:
                     or (program == 'redis-cli' and positional):
                 continue
             return program
+        elif program in REPL_INLINE:
+            if {f.split('=', 1)[0] for f in flags} & REPL_INLINE[program]:
+                continue
+            if (positional and program != 'R') or positional[:1] == ['CMD']:
+                continue
+            return program
+        elif program == 'php':
+            if '-a' in flags:
+                return 'php -a'
+        elif program == 'rails':
+            if positional[:1] and positional[0] in RAILS_CONSOLE:
+                return f'rails {positional[0]}'
+        elif program == 'sqlplus':
+            if not any(a.startswith('@') for a in args):
+                return program
+        elif program == 'gdb':
+            if not {'-batch', '--batch'} & set(flags):
+                return program
         elif program == 'irb':
             if not positional:
                 return program
@@ -668,6 +738,49 @@ def interactive_session(command: str, depth: int = 0) -> str:
 def _glob_targets_sensitive(pattern: str) -> bool:
     probes = ('.env', '.env.local', '.env.production', 'id_rsa', 'server.pem', 'private.key', '.netrc', '.envrc')
     return any(fnmatch.fnmatch(probe, pattern) and sensitive_path(probe) for probe in probes) or sensitive_path(pattern)
+
+
+def _strings(value: Any, depth: int = 0) -> list[str]:
+    if depth > 4:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        return [s for v in value.values() for s in _strings(v, depth + 1)]
+    if isinstance(value, list):
+        return [s for v in value for s in _strings(v, depth + 1)]
+    return []
+
+
+def _classify_mcp(tool_name: str, tool_input: dict[str, Any]) -> Verdict:
+    """No schema is known, so every string argument is checked the way a path or a command would be."""
+    name = tool_name.lower()
+    verdict = ALLOW
+    for value in _strings(tool_input):
+        if sensitive_path(value) or _embedded_sensitive(value):
+            return _sensitive(f'MCP tool {tool_name} references a sensitive file, which may expose credentials.')
+        if any(w in name for w in ('write', 'edit', 'create', 'move', 'delete', 'remove', 'patch')) and HARNESS_PROTECTED.search(value.strip()):
+            verdict = _worst(verdict, _harness(f'MCP tool {tool_name} would change harness enforcement file {Path(value).name}; needs explicit user approval.'))
+        if any(w in name for w in ('exec', 'shell', 'command', 'terminal', 'run')):
+            verdict = _worst(verdict, classify_command(value))
+    return verdict
+
+
+PATH_LIKE_KEY = re.compile(r'path|file|target|dest|source|src|dir', re.I)
+WRITE_LIKE_TOOL = re.compile(r'write|edit|create|move|rename|delete|remove|replace|patch|save|append', re.I)
+
+
+def classify_unknown_tool(tool_name: str, tool_input: dict[str, Any], base: str = '', root: str = '') -> Verdict:
+    """A tool the policy has no rule for (a renamed or new provider tool): check only its path-like arguments."""
+    paths = [s for key, value in (tool_input or {}).items() if PATH_LIKE_KEY.search(str(key)) for s in _strings(value)]
+    for path in paths:
+        if sensitive_path(path):
+            return _sensitive(f'{tool_name} targets sensitive file {Path(path).name}, which may expose credentials.')
+    if WRITE_LIKE_TOOL.search(tool_name):
+        for path in paths:
+            if _patch_target_protected(path, base, root):
+                return _harness(f'{tool_name} would change harness enforcement file {Path(path).name}; needs explicit user approval.')
+    return ALLOW
 
 
 def _relative_base(cwd: str | None, root: str | None) -> str:
@@ -702,6 +815,14 @@ def classify_generic(tool_name: str, tool_input: dict[str, Any], cwd: str | None
         path = _first_value(tool_input, ('file_path', 'path', 'AbsolutePath', 'TargetFile', 'Path'))  # Path: Antigravity 1.4 read_file
         if sensitive_path(path):
             return _sensitive(f'Reading sensitive file {Path(path).name} may expose credentials.')
+    if tool_name in {'edit_file', 'write_file'}:  # Antigravity 1.4 file edits: {Path, Target, Replacement} / {Path, Content}
+        path = _first_value(tool_input, ('Path', 'TargetFile', 'file_path', 'path'))
+        if path and _patch_target_protected(path, base, root or ''):
+            return _harness(f'Editing harness enforcement file {Path(path).name} needs explicit user approval.')
+        if sensitive_path(path):
+            return _sensitive(f'Writing sensitive file {Path(path).name} needs explicit user approval.')
+    if tool_name.startswith('mcp__'):  # Claude Code MCP tools: mcp__<server>__<tool>, arguments vary by server
+        return _classify_mcp(tool_name, tool_input)
     if tool_name == 'Grep':
         path = _first_value(tool_input, ('path',))
         glob = _first_value(tool_input, ('glob',))

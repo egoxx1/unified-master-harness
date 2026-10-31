@@ -4,6 +4,9 @@ import json
 import sys
 
 sys.dont_write_bytecode = True  # never leave __pycache__ inside the harness tree
+# Codex runs the tool when the hook passes its 5 s timeout. The policy takes up to ~2 s per MB of shell text on a
+# laptop and about 3x that on CI runners, so input above this size is denied before parsing, not allowed by a timeout.
+MAX_INPUT_BYTES = 128 * 1024
 
 
 def deny(reason: str) -> None:
@@ -23,6 +26,10 @@ def main() -> int:
             raise ValueError('event is not an object')
     except Exception:
         deny('V4 safety hook could not parse the tool call, so it is blocked.')
+        return 0
+    if len(json.dumps(event.get('tool_input'))) > MAX_INPUT_BYTES:
+        deny(f'Tool input over {MAX_INPUT_BYTES // 1024} KB is too large to check within the hook timeout; '
+             'write it to a file and run the file instead.')
         return 0
     try:
         from pathlib import Path
